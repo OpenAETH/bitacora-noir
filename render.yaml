@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: aetheryon-bitacora
+    runtime: python
+    region: oregon          # change to closest: oregon | frankfurt | singapore | ohio
+    plan: starter           # free | starter | standard | pro
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.1
+      - key: MONGO_URI
+        sync: false          # set manually in Render dashboard
+      - key: MONGO_DB
+        value: aetheryon
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY
+        sync: false
+      - key: R2_SECRET_KEY
+        sync: false
+      - key: R2_BUCKET
+        value: aetheryon-bitacora
+      - key: R2_PUBLIC_URL
+        sync: false          # optional: R2 public bucket / CDN URL
+      - key: ACCESS_PASSWORD
+        generateValue: false  # set manually — do NOT use default in prod
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true   # Render auto-generates a secure random string
+      - key: JWT_EXPIRE_H
+        value: "72"

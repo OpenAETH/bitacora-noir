@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AETHERYON · IDE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+/* ═══════════════════════════════════════════════════
+   AETHERYON · IDE MODULE CSS - v4 Optimizado
+═══════════════════════════════════════════════════ */
+:root {
+  --c:#00f5ff;  --cd:#00b8c4; --cg:rgba(0,245,255,.07);
+  --m:#ff00a8;  --mg:rgba(255,0,168,.07);
+  --go:#ffd700; --gr:#00ff88; --re:#ff2244;
+  --bg:#020509; --bg2:#060d14; --bg3:#0a131e; --bg4:#0f1c2a;
+  --sf:rgba(0,245,255,.04); --br:rgba(0,245,255,.16); --br2:rgba(0,245,255,.08);
+  --tx:#9ecdd6; --td:#3f6b75;
+  --font-hd:'Orbitron',monospace;
+  --font-mo:'Share Tech Mono',monospace;
+  --font-bd:'Rajdhani',sans-serif;
+  --font-code:'JetBrains Mono',monospace;
+  --lh:23.4px;
+  --gutter-width:60px;
+  --toolbar-h:52px;
+  --projectbar-h:36px;
+  --tabbar-h:36px;
+  --statusbar-h:24px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);
+  font-family:var(--font-bd);font-size:14px}
+
+body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,
+  rgba(0,245,255,.006) 2px,rgba(0,245,255,.006) 4px)}
+
+#app{display:grid;grid-template-rows:var(--toolbar-h) var(--projectbar-h) var(--tabbar-h) 1fr var(--statusbar-h);height:100vh;overflow:hidden;}
+
+/* ════════ TOOLBAR ════════ */
+#toolbar{background:rgba(2,5,9,.97);border-bottom:1px solid var(--br);
+  display:flex;align-items:center;gap:10px;padding:0 14px;backdrop-filter:blur(20px);z-index:100}
+
+.brand{display:flex;align-items:center;gap:8px;padding-right:12px;border-right:1px solid var(--br);flex-shrink:0}
+.brand-logo{font-family:var(--font-hd);font-size:12px;font-weight:900;letter-spacing:.18em;
+  color:#fff;text-shadow:0 0 12px var(--c),0 0 24px rgba(0,245,255,.2)}
+.brand-sub{font-family:var(--font-mo);font-size:7px;letter-spacing:.2em;color:var(--c);opacity:.5}
+
+.lang-selector{display:flex;align-items:center;gap:2px;background:var(--sf);
+  border:1px solid var(--br);padding:3px;flex-shrink:0}
+.lbtn{background:transparent;border:none;color:var(--td);padding:4px 10px;
+  font-family:var(--font-mo);font-size:8px;letter-spacing:.1em;cursor:pointer;
+  display:flex;align-items:center;gap:4px;transition:all .16s}
+.lbtn i{font-size:10px}
+.lbtn:hover{background:var(--cg);color:var(--tx)}
+.lbtn.active{background:var(--cg);color:var(--c)}
+
+.tbtn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;
+  border:1px solid var(--br);background:var(--sf);color:var(--tx);
+  font-family:var(--font-mo);font-size:8px;letter-spacing:.1em;cursor:pointer;transition:all .16s;
+  clip-path:polygon(5px 0%,100% 0%,calc(100% - 5px) 100%,0% 100%);flex-shrink:0}
+.tbtn:hover{border-color:var(--c);color:var(--c);background:var(--cg)}
+.tbtn:active{transform:translateY(1px)}
+.tbtn.primary{background:var(--c);border-color:var(--c);color:var(--bg);font-weight:700}
+.tbtn.primary:hover{background:var(--cd);box-shadow:0 0 14px rgba(0,245,255,.35)}
+
+.h-spacer{flex:1}
+.file-stats{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.stat-badge{background:var(--sf);padding:3px 8px;border:1px solid var(--br);
+  display:flex;align-items:center;gap:4px;font-family:var(--font-mo);font-size:8px;color:var(--td)}
+.stat-badge i{color:var(--c);font-size:9px}
+
+/* ════════ PROJECT BAR ════════ */
+#project-bar{background:rgba(3,8,14,.95);border-bottom:1px solid var(--br2);
+  display:flex;align-items:center;gap:10px;padding:0 14px;z-index:90}
+.pb-label{font-family:var(--font-mo);font-size:8px;letter-spacing:.2em;color:var(--td);display:flex;align-items:center;gap:6px}
+.pb-label i{color:var(--c)}
+.pb-dot{width:5px;height:5px;border-radius:50%;background:var(--go);box-shadow:0 0 5px var(--go);flex-shrink:0;
+  animation:pulse 2s ease-in-out infinite}
+
+@keyframes pulse{0%,100%{opacity:1} 50%{opacity:.5}}
+
+#proj-select{background:var(--sf);border:1px solid var(--br);color:var(--tx);
+  padding:4px 10px;font-family:var(--font-mo);font-size:9px;outline:none;cursor:pointer;flex:1;max-width:320px;
+  transition:all .16s}
+#proj-select:hover{border-color:var(--c)}
+#proj-select:focus{border-color:var(--c);background:var(--cg)}
+
+#proj-info{font-family:var(--font-mo);font-size:8px;color:var(--td);display:flex;align-items:center;gap:10px}
+#proj-info span{display:flex;align-items:center;gap:4px}
+
+.pb-files{position:relative;flex-shrink:0}
+.file-dropdown{position:absolute;top:calc(100% + 6px);right:0;z-index:500;
+  background:rgba(3,8,14,.98);border:1px solid var(--c);min-width:280px;max-width:360px;
+  display:none;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.5);
+  animation:slideDown .2s ease}
+.file-dropdown.open{display:flex}
+
+@keyframes slideDown{from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)}}
+
+.fd-hdr{padding:8px 12px;border-bottom:1px solid var(--br);font-family:var(--font-mo);font-size:8px;color:var(--c)}
+.fd-list{max-height:260px;overflow-y:auto;padding:6px}
+.fd-list::-webkit-scrollbar{width:4px}
+.fd-list::-webkit-scrollbar-track{background:var(--bg)}
+.fd-list::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px}
+.fd-item{display:flex;align-items:center;gap:8px;padding:7px 9px;cursor:pointer;transition:all .15s;
+  border:1px solid transparent}
+.fd-item:hover{border-color:var(--c);background:var(--cg)}
+.fd-item-name{font-family:var(--font-mo);font-size:9px;color:var(--tx);flex:1}
+.fd-item-meta{font-family:var(--font-mo);font-size:7px;color:var(--td)}
+.fd-empty{padding:20px;text-align:center;color:var(--td);font-family:var(--font-mo);font-size:9px}
+
+.pb-conn{font-family:var(--font-mo);font-size:8px;display:flex;align-items:center;gap:5px}
+.conn-dot{width:5px;height:5px;border-radius:50%;background:var(--td)}
+.conn-dot.online{background:var(--gr);box-shadow:0 0 5px var(--gr)}
+.conn-dot.error{background:var(--re);box-shadow:0 0 5px var(--re)}
+
+/* ════════ TABBAR ════════ */
+#tabbar{background:var(--bg2);border-bottom:1px solid var(--br);
+  display:flex;align-items:center;padding:0 8px;overflow-x:auto;gap:2px}
+#tabbar::-webkit-scrollbar{height:3px}
+#tabbar::-webkit-scrollbar-track{background:var(--bg)}
+#tabbar::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px}
+.tab{display:flex;align-items:center;gap:6px;padding:0 13px;height:34px;
+  background:var(--bg2);color:var(--td);border-right:1px solid var(--br2);
+  cursor:pointer;font-family:var(--font-mo);font-size:8px;letter-spacing:.1em;
+  border-bottom:2px solid transparent;flex-shrink:0;transition:all .16s}
+.tab i{font-size:10px}
+.tab:hover{background:var(--cg);color:var(--tx)}
+.tab.active{background:rgba(0,245,255,.05);color:var(--c);border-bottom-color:var(--c)}
+.tab.modified::after{content:'●';color:var(--go);margin-left:4px;font-size:10px}
+.tab-close{opacity:0;width:14px;height:14px;display:flex;align-items:center;justify-content:center;
+  transition:opacity .16s}
+.tab:hover .tab-close{opacity:1}
+.tab-close:hover i{color:var(--re)!important}
+.tab-add{width:30px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--td);
+  cursor:pointer;transition:all .16s}
+.tab-add:hover{color:var(--c);background:var(--cg)}
+
+/* ════════ EDITOR AREA ════════ */
+/* ════════ EDITOR AREA - CORREGIDO ════════ */
+#editor-container {
+  background: var(--bg2);
+  overflow: hidden;
+  display: flex;
+  position: relative;
+  height: 100%;
+}
+
+.editor-wrap {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Gutter - line numbers with breakpoints */
+.line-numbers {
+  width: var(--gutter-width);
+  background: var(--bg);
+  border-right: 1px solid var(--br);
+  user-select: none;
+  overflow-y: auto; /* Cambiado a auto para que haga scroll con el contenido */
+  overflow-x: hidden;
+  flex-shrink: 0;
+  font-family: var(--font-code);
+  font-size: 13px;
+  line-height: var(--lh);
+  color: var(--td);
+  position: relative;
+  height: 100%; /* Altura fija */
+}
+
+/* Scroll personalizado para line-numbers */
+.line-numbers::-webkit-scrollbar {
+  width: 0px; /* Oculto para no duplicar scrollbars */
+  background: transparent;
+}
+
+.line-numbers-inner {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.line-number {
+  padding: 0 10px 0 8px;
+  height: var(--lh);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  cursor: pointer;
+  transition: all .15s;
+  position: relative;
+}
+
+.line-number:hover {
+  background: rgba(0,245,255,.03);
+}
+
+.line-number.current {
+  color: var(--c);
+  background: rgba(0,245,255,.04);
+  border-right: 2px solid var(--c);
+}
+
+/* Breakpoint styling */
+.line-number.bp {
+  background: rgba(255,34,68,.08);
+}
+
+.line-number.bp .ln-text {
+  color: var(--re);
+}
+
+.line-number.bp::before {
+  content: '●';
+  position: absolute;
+  left: 6px;
+  font-size: 10px;
+  color: var(--re);
+  text-shadow: 0 0 6px var(--re);
+  animation: bpPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes bpPulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .7; transform: scale(1.15); }
+}
+
+.ln-text {
+  flex: 1;
+  text-align: right;
+}
+
+/* Editor scroll container - CORREGIDO */
+.editor-scroll {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background: var(--bg2);
+  height: 100%;
+}
+
+.editor-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.editor-scroll::-webkit-scrollbar-track {
+  background: var(--bg);
+  border-left: 1px solid var(--br2);
+}
+
+.editor-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0,245,255,.2);
+  border-radius: 4px;
+  border: 2px solid var(--bg);
+}
+
+.editor-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,245,255,.35);
+}
+
+.editor-scroll::-webkit-scrollbar-corner {
+  background: var(--bg);
+}
+
+/* Editor layers - CORREGIDO */
+.editor-layers {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  display: block;
+}
+
+/* Current line highlight */
+.current-line-highlight {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--lh);
+  background: rgba(0,245,255,.045);
+  border-left: 2px solid rgba(0,245,255,.6);
+  pointer-events: none;
+  z-index: 1;
+  transition: top .08s ease-out;
+}
+
+/* Syntax highlight layer - CORREGIDO */
+.syntax-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 14px 16px;
+  font-family: var(--font-code);
+  font-size: 13px;
+  line-height: var(--lh);
+  white-space: pre;
+  pointer-events: none;
+  z-index: 2;
+  color: var(--tx);
+  overflow: hidden; /* Evita scroll interno */
+  word-wrap: normal;
+  overflow-wrap: normal;
+}
+
+/* Editor textarea - CORREGIDO */
+.editor-code {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 14px 16px;
+  background: transparent;
+  font-family: var(--font-code);
+  font-size: 13px;
+  line-height: var(--lh);
+  color: transparent;
+  caret-color: var(--tx);
+  outline: none;
+  tab-size: 4;
+  white-space: pre;
+  border: none;
+  resize: none;
+  z-index: 3;
+  overflow: hidden; /* Importante: el scroll lo maneja el contenedor padre */
+  word-wrap: normal;
+  overflow-wrap: normal;
+}
+
+.editor-code::selection {
+  background: rgba(0,245,255,.22);
+}
+
+/* Syntax colors */
+.syn-keyword { color: #ff79c6; font-weight: 500; }
+.syn-string { color: #f1fa8c; }
+.syn-number { color: #bd93f9; }
+.syn-comment { color: #6272a4; font-style: italic; }
+.syn-function { color: #50fa7b; }
+.syn-operator { color: #ff5555; }
+.syn-tag { color: #ff79c6; }
+.syn-attribute { color: #50fa7b; }
+.syn-value { color: #f1fa8c; }
+.syn-selector { color: #8be9fd; }
+.syn-property { color: #66d9ef; }
+
+/* Minimap - OPTIMIZED with drag */
+
+
+
+
+
+
+
+
+/* ════════ STATUS BAR ════════ */
+#statusbar{background:rgba(2,5,9,.97);border-top:1px solid var(--br);
+  padding:0 14px;display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--font-mo);font-size:8px;color:var(--td)}
+.sl,.sr{display:flex;align-items:center;gap:12px}
+.si{display:flex;align-items:center;gap:4px;padding:0 4px;transition:color .16s;cursor:default}
+.si:hover{color:var(--c)}
+.si i{color:var(--c);font-size:8px}
+.ssep{width:1px;height:10px;background:var(--br)}
+.lang-chip{color:var(--c);font-weight:700;background:var(--cg);padding:1px 7px;border:1px solid var(--br)}
+
+/* ════════ TOAST ════════ */
+#toast-ct{position:fixed;bottom:30px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:5px;pointer-events:none}
+.toast{background:rgba(3,8,14,.98);border:1px solid;padding:8px 13px;font-family:var(--font-mo);font-size:9px;
+  display:flex;align-items:center;gap:7px;max-width:300px;animation:toastIn .3s ease;
+  box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.toast.ok{border-color:var(--gr);color:var(--gr)}
+.toast.err{border-color:var(--re);color:var(--re)}
+.toast.info{border-color:var(--c);color:var(--c)}
+
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- TOOLBAR -->
+  <div id="toolbar">
+    <div class="brand">
+      <div>
+        <div class="brand-logo">AETHERYON</div>
+        <div class="brand-sub">IDE MODULE</div>
+      </div>
+    </div>
+    
+    <div class="lang-selector">
+      <button class="lbtn active" onclick="setLang('python')"><i class="fab fa-python"></i>PYTHON</button>
+      <button class="lbtn" onclick="setLang('javascript')"><i class="fab fa-js"></i>JS</button>
+      <button class="lbtn" onclick="setLang('html')"><i class="fab fa-html5"></i>HTML</button>
+      <button class="lbtn" onclick="setLang('css')"><i class="fab fa-css3"></i>CSS</button>
+      <button class="lbtn" onclick="setLang('dockerfile')"><i class="fab fa-docker"></i>DOCKER</button>
+      <button class="lbtn" onclick="setLang('other')"><i class="fas fa-file-code"></i>OTHER</button>
+    </div>
+    
+    <button class="tbtn" onclick="newFile()"><i class="fas fa-file"></i>NUEVO</button>
+    <button class="tbtn" onclick="saveFile()"><i class="fas fa-save"></i>GUARDAR</button>
+    
+    <div class="h-spacer"></div>
+    
+    <div class="file-stats">
+      <div class="stat-badge"><i class="fas fa-stream"></i><span id="lineCount">1</span></div>
+      <div class="stat-badge"><i class="fas fa-align-left"></i><span id="charCount">0</span></div>
+      <div class="stat-badge"><i class="fas fa-weight"></i><span id="sizeCount">0</span>B</div>
+    </div>
+  </div>
+
+  <!-- PROJECT BAR -->
+  <div id="project-bar">
+    <div class="pb-label"><i class="fas fa-cube"></i>PROYECTO</div>
+    <div class="pb-dot"></div>
+    <select id="proj-select" onchange="onProjectChange()">
+      <option value="">── Seleccionar proyecto ──</option>
+    </select>
+    
+    <div class="pb-files">
+      <button class="tbtn" onclick="toggleFileDropdown()"><i class="fas fa-folder-open"></i>ARCHIVOS</button>
+      <div class="file-dropdown" id="fileDropdown">
+        <div class="fd-hdr">ARCHIVOS DEL PROYECTO</div>
+        <div class="fd-list" id="fdList">
+          <div class="fd-empty">Selecciona un proyecto</div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="proj-info">
+      <span id="pi-files" style="display:none"><i class="fas fa-file-code"></i><span id="pi-fc">0</span></span>
+      <span id="pi-size" style="display:none"><i class="fas fa-hdd"></i><span id="pi-sz">0B</span></span>
+    </div>
+    
+    <div class="h-spacer"></div>
+    
+    <div class="pb-conn">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connLabel">VERIFICANDO...</span>
+    </div>
+  </div>
+
+  <!-- TABBAR -->
+  <div id="tabbar" id="tabbar-container"></div>
+
+  <!-- EDITOR -->
+  <div id="editor-container">
+    <div class="editor-wrap" id="editorWrap"></div>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div id="statusbar">
+    <div class="sl">
+      <div class="si"><i class="fas fa-bolt"></i>AETHERYON</div>
+      <div class="ssep"></div>
+      <div class="si"><i class="fas fa-code"></i>Ln <span id="sb-ln">1</span>, Col <span id="sb-col">1</span></div>
+      <div class="si"><i class="fas fa-align-center"></i>UTF-8</div>
+      <div class="si"><i class="fas fa-circle" id="apiDot" style="color:var(--td)"></i>API</div>
+    </div>
+    <div class="sr">
+      <div class="si"><span class="lang-chip" id="langChip">PYTHON</span></div>
+      <div class="ssep"></div>
+      <div class="si"><i class="fas fa-bug"></i><span id="bpCount">0</span> BREAKPOINTS</div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-ct"></div>
+
+<script>
+/* ════════════════════════════════════════════
+   AETHERYON IDE - JavaScript Module v4
+   Con syntax highlighting y lógica robusta
+════════════════════════════════════════════════ */
+
+// Config
+// Cuando el IDE corre en su propio puerto (8001), el backend está en 8000
+const _urlParams = new URLSearchParams(window.location.search);
+const API_BASE = _urlParams.get('api') || 
+  window.location.origin.replace(/:800[1-9]/, ':8000');  // IDE=8001 → API=8000
+
+// Tab management
+let tabs = [];
+let activeTabId = null;
+let nextTabId = 1;
+
+// Minimap drag state
+let minimapDragging = false;
+
+// Global state
+let projects = [];
+let activeProject = null;  // local IDE state
+
+/* ════════════════════════════════════════════
+   TAB STRUCTURE
+════════════════════════════════════════════════ */
+function createTab(name = 'untitled', lang = 'python', content = '', fileInfo = null) {
+  const id = nextTabId++;
+  const tab = {
+    id,
+    name,
+    lang,
+    content,
+    savedContent: content,
+    modified: false,
+    breakpoints: new Set(),
+    currentLine: 1,
+    currentCol: 1,
+    scrollTop: 0,
+    scrollLeft: 0,
+    fileInfo
+  };
+  tabs.push(tab);
+  return tab;
+}
+
+function getActiveTab() {
+  return tabs.find(t => t.id === activeTabId);
+}
+
+function getTabById(id) {
+  return tabs.find(t => t.id === id);
+}
+
+function removeTab(id) {
+  const index = tabs.findIndex(t => t.id === id);
+  if (index !== -1) {
+    tabs.splice(index, 1);
+  }
+}
+
+/* ════════════════════════════════════════════
+   SYNTAX HIGHLIGHTING
+════════════════════════════════════════════════ */
+
+function highlightSyntax(code, lang) {
+  // Escape HTML
+  code = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  
+  if (lang === 'python') {
+    return highlightPython(code);
+  } else if (lang === 'javascript') {
+    return highlightJavaScript(code);
+  } else if (lang === 'html') {
+    return highlightHTML(code);
+  } else if (lang === 'css') {
+    return highlightCSS(code);
+  } else if (lang === 'dockerfile') {
+    return highlightDockerfile(code);
+  }
+  
+  return code;
+}
+
+function highlightPython(code) {
+  const keywords = /\b(def|class|if|elif|else|for|while|return|import|from|as|try|except|finally|with|lambda|yield|async|await|pass|break|continue|global|nonlocal|assert|raise|del|in|is|not|and|or|True|False|None)\b/g;
+  const strings = /(["'`])((?:\\.|(?!\1).)*?)\1/g;
+  const comments = /(#.*$)/gm;
+  const numbers = /\b(\d+\.?\d*)\b/g;
+  const functions = /\b([a-zA-Z_]\w*)\s*(?=\()/g;
+  
+  /* code = code.replace(comments, '<span class="syn-comment">$1</span>'); */ /* COMENTADO PORQUE GENERA ERROR */
+  /* code = code.replace(strings, '<span class="syn-string">$1$2$1</span>'); */ /* COMENTADO PORQUE GENERA ERROR */
+  code = code.replace(keywords, '<span class="syn-keyword">$1</span>');
+  code = code.replace(functions, '<span class="syn-function">$1</span>');
+  code = code.replace(numbers, '<span class="syn-number">$1</span>');
+  
+  return code;
+}
+
+function highlightJavaScript(code) {
+  const keywords = /\b(function|const|let|var|if|else|for|while|do|switch|case|break|return|class|extends|import|export|from|default|async|await|try|catch|finally|throw|new|this|super|static|typeof|instanceof|in|of|delete|void|null|undefined|true|false)\b/g;
+  const strings = /(["'`])((?:\\.|(?!\1).)*?)\1/g;
+  const comments = /(\/\/.*$|\/\*[\s\S]*?\*\/)/gm;
+  const numbers = /\b(\d+\.?\d*)\b/g;
+  const functions = /\b([a-zA-Z_$]\w*)\s*(?=\()/g;
+  
+  /* code = code.replace(comments, '<span class="syn-comment">$1</span>'); */   /* COMENTADO PORQUE GENERA ERROR */
+  /* code = code.replace(strings, '<span class="syn-string">$1$2$1</span>'); */   /* COMENTADO PORQUE GENERA ERROR */
+  code = code.replace(keywords, '<span class="syn-keyword">$1</span>');
+  code = code.replace(functions, '<span class="syn-function">$1</span>');
+  code = code.replace(numbers, '<span class="syn-number">$1</span>');
+  
+  return code;
+}
+
+function highlightHTML(code) {
+  const tags = /(&lt;\/?)([\w-]+)(.*?)(&gt;)/g;
+  const attributes = /\s([\w-]+)(?==)/g;
+  const strings = /(["'])(.*?)\1/g;
+  const comments = /(&lt;!--[\s\S]*?--&gt;)/g;
+  
+  code = code.replace(comments, '<span class="syn-comment">$1</span>');
+  code = code.replace(tags, (match, open, tag, content, close) => {
+    let highlighted = open + '<span class="syn-tag">' + tag + '</span>';
+    content = content.replace(attributes, ' <span class="syn-attribute">$1</span>');
+    content = content.replace(strings, '<span class="syn-value">$1$2$1</span>');
+    return highlighted + content + close;
+  });
+  
+  return code;
+}
+
+function highlightCSS(code) {
+  const selectors = /^([.#]?[\w-]+\s*[,{])/gm;
+  const properties = /\b([\w-]+)(?=\s*:)/g;
+  const values = /:\s*([^;]+);/g;
+  const comments = /(\/\*[\s\S]*?\*\/)/g;
+  const strings = /(["'])(.*?)\1/g;
+  const numbers = /\b(\d+\.?\d*(?:px|em|rem|%|vh|vw)?)\b/g;
+  
+  /* code = code.replace(comments, '<span class="syn-comment">$1</span>'); */   /* COMENTADO PORQUE GENERA ERROR */
+  code = code.replace(selectors, '<span class="syn-selector">$1</span>');
+  code = code.replace(properties, '<span class="syn-property">$1</span>');
+  code = code.replace(strings, '<span class="syn-string">$1$2$1</span>');
+  code = code.replace(numbers, '<span class="syn-number">$1</span>');
+  
+  return code;
+}
+
+function highlightDockerfile(code) {
+  const keywords = /\b(FROM|RUN|CMD|LABEL|EXPOSE|ENV|ADD|COPY|ENTRYPOINT|VOLUME|USER|WORKDIR|ARG|ONBUILD|STOPSIGNAL|HEALTHCHECK|SHELL)\b/g;
+  const strings = /(["'])((?:\\.|(?!\1).)*?)\1/g;
+  const comments = /(#.*$)/gm;
+  
+  code = code.replace(comments, '<span class="syn-comment">$1</span>');
+  code = code.replace(strings, '<span class="syn-string">$1$2$1</span>');
+  code = code.replace(keywords, '<span class="syn-keyword">$1</span>');
+  
+  return code;
+}
+
+/* ════════════════════════════════════════════
+   INITIALIZATION
+════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', async () => {
+  initEditor();
+  checkAPIConnection();
+  await loadProjects();
+
+  // Tell parent frame we are ready (cuando corre en iframe)
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'IDE_READY' }, '*');
+  }
+
+  // ── Modo standalone: leer parámetros de la URL ──
+  // URL: http://localhost:8001/?proj=prueba_06&file=documents/app.py&name=app.py&ext=.py
+  const _p = new URLSearchParams(window.location.search);
+  const _projId = _p.get('proj');
+  const _filePath = _p.get('file');
+  const _fileName = _p.get('name');
+  const _fileExt  = _p.get('ext') || '';
+  if (_projId && _filePath) {
+    // Seleccionar proyecto en dropdown
+    const sel = document.getElementById('proj-select');
+    if (sel) {
+      sel.value = _projId;
+      onProjectChange();
+    }
+    // Abrir archivo (reemplaza el tab de bienvenida)
+    await openFileFromAPI(_projId, _filePath, _fileName || _filePath.split('/').pop(), _fileExt);
+    // Limpiar URL para no reabrir al recargar
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
+  document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('fileDropdown');
+    const btn = e.target.closest('.pb-files');
+    if (!btn && dropdown.classList.contains('open')) {
+      dropdown.classList.remove('open');
+    }
+  });
+  
+  document.addEventListener('keydown', handleGlobalKeydown);
+});
+
+function initEditor() {
+  const startCode = `# Bienvenido a AETHERYON IDE
+# Escribe tu código aquí
+
+def main():
+    print("Hello, AETHERYON!")
+    for i in range(10):
+        print(f"Iteración {i}")
+    
+if __name__ == "__main__":
+    main()
+`;
+  const tab = createTab('untitled.py', 'python', startCode);
+  tab._isWelcome = true;  // marcador: reemplazar al abrir archivo real
+  activeTabId = tab.id;
+  tab.savedContent = startCode;
+  
+  renderTabs();
+  renderEditor();
+}
+
+/* ════════════════════════════════════════════
+   TAB BAR RENDERING
+════════════════════════════════════════════════ */
+function renderTabs() {
+  const tabbar = document.getElementById('tabbar');
+  
+  const tabsHTML = tabs.map(tab => {
+    const active = tab.id === activeTabId ? 'active' : '';
+    const modified = tab.modified ? 'modified' : '';
+    const icon = getIconForLang(tab.lang);
+    
+    return `
+      <div class="tab ${active} ${modified}" data-tab-id="${tab.id}" onclick="switchToTab(${tab.id})">
+        <i class="${icon}"></i>
+        <span>${tab.name}</span>
+        <div class="tab-close" onclick="closeTab(event, ${tab.id})">
+          <i class="fas fa-times"></i>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  tabbar.innerHTML = tabsHTML + `
+    <div class="tab-add" onclick="newFile()">
+      <i class="fas fa-plus"></i>
+    </div>
+  `;
+}
+
+function getIconForLang(lang) {
+  const icons = {
+    python: 'fab fa-python',
+    javascript: 'fab fa-js',
+    html: 'fab fa-html5',
+    css: 'fab fa-css3',
+    dockerfile: 'fab fa-docker',
+    other: 'fas fa-file-code'
+  };
+  return icons[lang] || 'fas fa-file-code';
+}
+
+/* ════════════════════════════════════════════
+   EDITOR RENDERING - ROBUST
+════════════════════════════════════════════════ */
+function renderEditor() {
+  const tab = getActiveTab();
+  if (!tab) return;
+  
+  const wrap = document.getElementById('editorWrap');
+  
+  wrap.innerHTML = `
+    <div class="line-numbers" id="lineNumbers">
+      <div class="line-numbers-inner" id="lineNumbersInner"></div>
+    </div>
+    <div class="editor-scroll" id="editorScroll">
+      <div class="editor-layers" id="editorLayers">
+        <div class="current-line-highlight" id="lineHighlight"></div>
+        <div class="syntax-highlight" id="syntaxHighlight"></div>
+        <textarea class="editor-code" id="editor" spellcheck="false" placeholder="# Escribe tu código aquí..."></textarea>
+      </div>
+    </div>
+    </div>
+  `;
+  
+  const editor = document.getElementById('editor');
+  const editorScroll = document.getElementById('editorScroll');
+  const minimap = document.getElementById('minimap');
+  
+  // Set content
+  editor.value = tab.content;
+  
+  // Restore scroll position
+  editorScroll.scrollTop = tab.scrollTop;
+  editorScroll.scrollLeft = tab.scrollLeft;
+  
+  // Event listeners
+  editorScroll.addEventListener('scroll', syncScroll);
+  editor.addEventListener('input', onEditorInput);
+  editor.addEventListener('keyup', updateCursorPosition);
+  editor.addEventListener('click', updateCursorPosition);
+  editor.addEventListener('keydown', handleEditorKeydown);
+  
+  // Minimap drag
+  
+  
+  
+  
+  // Initial update
+  updateInterface();
+  updateCursorPosition();
+  updateLanguageUI(tab.lang);
+  updateSyntaxHighlight();
+}
+
+/* ════════════════════════════════════════════
+   EDITOR CORE FUNCTIONS
+════════════════════════════════════════════════ */
+function onEditorInput() {
+  const tab = getActiveTab();
+  if (!tab) return;
+  
+  const editor = document.getElementById('editor');
+  tab.content = editor.value;
+  tab.modified = (tab.content !== tab.savedContent);
+  
+  updateInterface();
+  updateSyntaxHighlight();
+  renderTabs();
+}
+
+function updateInterface() {
+  updateLineNumbers();
+  updateFileStats();
+  
+  updateCurrentLineHighlight();
+  updateEditorSize();
+}
+
+function updateEditorSize() {
+  const tab = getActiveTab();
+  if (!tab) return;
+  
+  const editor = document.getElementById('editor');
+  const layers = document.getElementById('editorLayers');
+  const syntaxHighlight = document.getElementById('syntaxHighlight');
+  
+  if (!editor || !layers || !syntaxHighlight) return;
+  
+  // Calculate required dimensions
+  const lines = tab.content.split('\n');
+  const lineHeight = 23.4;
+  const charWidth = 7.8; // Approximate monospace character width
+  const padding = 32; // 16px left + 16px right
+  
+  const maxLineLength = Math.max(...lines.map(l => l.length), 50);
+  const minHeight = lines.length * lineHeight + 28; // 14px top + 14px bottom
+  const minWidth = maxLineLength * charWidth + padding;
+  
+  // Set dimensions - PERO con un máximo para evitar scroll infinito
+  layers.style.minHeight = minHeight + 'px';
+  layers.style.minWidth = '100%'; // Cambiado de minWidth fijo a 100%
+  
+  // Sync syntax highlight and textarea dimensions
+  syntaxHighlight.style.minHeight = minHeight + 'px';
+  syntaxHighlight.style.width = '100%'; // Cambiado a porcentaje
+  editor.style.minHeight = minHeight + 'px';
+  editor.style.width = '100%'; // Cambiado a porcentaje
+}
+
+
+function updateSyntaxHighlight() {
+  const tab = getActiveTab();
+  if (!tab) return;
+  
+  const syntaxHighlight = document.getElementById('syntaxHighlight');
+  if (!syntaxHighlight) return;
+  
+  const highlighted = highlightSyntax(tab.content, tab.lang);
+  syntaxHighlight.innerHTML = highlighted;
+}
+
+function updateLineNumbers() {
+  const tab = getActiveTab();
+  if (!tab) return;
+  
+  const lineNumbersInner = document.getElementById('lineNumbersInner');
+  if (!lineNumbersInner) return;
+  
+  const lines = tab.content.split('\n');
+  
+  lineNumbersInner.innerHTML = lines.map((_, i) => {
+    const lineNum = i + 1;
+    const isCurrent = lineNum === tab.currentLine;
+    const isBP = tab.breakpoints.has(lineNum);
+    
+    let classes = 'line-number';
+    if (isCurrent) classes += ' current';
+    if (isBP) classes += ' bp';
+    
+    return `<div class="${classes}" data-line="${lineNum}" onclick="toggleBreakpoint(${lineNum})">
+      <span class="ln-text">${lineNum}</span>
+    </div>`;
+  }).join('');
+  
+  document.getElementById('bpCount').textContent = tab.breakpoints.size;
+}
+
+function updateCurrentLineHighlight() {
+  const tab = getActiveTab();
+  if (!tab) return;
+  
+  const lineHighlight = document.getElementById('lineHighlight');
+  if (!lineHighlight) return;
+  
+  const lineTop = 14 + (tab.currentLine - 1) * 23.4;
+  lineHighlight.style.top = lineTop + 'px';
+}
+
+function updateFileStats() {
+  const tab = getActiveTab();
+  if (!tab) return;
+  
+  const lines = tab.content.split('\n');
+  const chars = tab.content.length;
+  const bytes = new Blob([tab.content]).size;
+  
+  document.getElementById('lineCount').textContent = lines.length;
+  document.getElementById('charCount').textContent = chars;
+  document.getElementById('sizeCount').textContent = bytes;
+}
+
+function updateCursorPosition() {
+  const tab = getActiveTab();
+  if (!tab) return;
+  
+  const editor = document.getElementById('editor');
+  if (!editor) return;
+  
+  const text = editor.value;
+  const cursorPos = editor.selectionStart;
+  
+  const textBeforeCursor = text.substring(0, cursorPos);
+  tab.currentLine = textBeforeCursor.split('\n').length;
+  
+  const lastNewline = textBeforeCursor.lastIndexOf('\n');
+  tab.currentCol = cursorPos - lastNewline;
+  
+  document.getElementById('sb-ln').textContent = tab.currentLine;
+  document.getElementById('sb-col').textContent = tab.currentCol;
+  
+  updateLineNumbers();
+  updateCurrentLineHighlight();
+}
+
+function syncScroll() {
+  const tab = getActiveTab();
+  if (!tab) return;
+  
+  const editorScroll = document.getElementById('editorScroll');
+  const lineNumbers = document.getElementById('lineNumbers');
+  
+  if (!editorScroll || !lineNumbers) return;
+  
+  tab.scrollTop = editorScroll.scrollTop;
+  tab.scrollLeft = editorScroll.scrollLeft;
+  
+  lineNumbers.scrollTop = editorScroll.scrollTop;
+  
+  
+}
+
+function handleEditorKeydown(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const editor = document.getElementById('editor');
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    editor.value = editor.value.substring(0, start) + '    ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = start + 4;
+    onEditorInput();
+  }
+}
+
+/* ════════════════════════════════════════════
+   BREAKPOINTS
+════════════════════════════════════════════════ */
+function toggleBreakpoint(lineNum) {
+  const tab = getActiveTab();
+  if (!tab) return;
+  
+  if (tab.breakpoints.has(lineNum)) {
+    tab.breakpoints.delete(lineNum);
+    showToast(`Breakpoint eliminado: Línea ${lineNum}`, 'info');
+  } else {
+    tab.breakpoints.add(lineNum);
+    showToast(`Breakpoint agregado: Línea ${lineNum}`, 'ok');
+  }
+  
+  updateLineNumbers();
+  
+}
+
+/* ════════════════════════════════════════════
+   MINIMAP - OPTIMIZED with DRAG
+════════════════════════════════════════════════ */
+
+
+
+
+
+
+function switchToTab(tabId) {
+  const tab = getTabById(tabId);
+  if (!tab || tabId === activeTabId) return;
+  
+  activeTabId = tabId;
+  renderTabs();
+  renderEditor();
+}
+
+function newFile() {
+  const tab = getActiveTab();
+  
+  if (tab && tab.modified) {
+    if (!confirm('¿Descartar cambios en el archivo actual?')) return;
+  }
+  
+
+  const templates = {
+    python: '# Nuevo archivo Python\n\n',
+    javascript: '// Nuevo archivo JavaScript\n\n',
+    html: '<!DOCTYPE html>\n<html>\n<head>\n  <title>Nuevo</title>\n</head>\n<body>\n  \n</body>\n</html>\n',
+    css: '/* Nuevo archivo CSS */\n\n',
+    dockerfile: 'FROM python:3.11-slim\n\n',
+    other: '# Nuevo archivo\n\n'
+  };
+  
+  const lang = tab ? tab.lang : 'python';
+  const template = templates[lang];
+  const ext = getExtForLang(lang);
+  const name = 'untitled' + ext;
+  
+  const newTab = createTab(name, lang, template);
+  newTab.savedContent = template;
+  
+  activeTabId = newTab.id;
+  renderTabs();
+  renderEditor();
+  
+  showToast('Nuevo archivo creado', 'ok');
+}
+
+function closeTab(e, tabId) {
+  e.stopPropagation();
+  
+  const tab = getTabById(tabId);
+  if (!tab) return;
+  
+  if (tab.modified) {
+    if (!confirm(`¿Cerrar "${tab.name}" sin guardar?`)) return;
+  }
+  
+  removeTab(tabId);
+  
+  if (tabId === activeTabId) {
+    if (tabs.length > 0) {
+      activeTabId = tabs[tabs.length - 1].id;
+      renderTabs();
+      renderEditor();
+    } else {
+      const newTab = createTab('untitled.py', 'python', '# Nuevo archivo\n\n');
+      activeTabId = newTab.id;
+      renderTabs();
+      renderEditor();
+    }
+  } else {
+    renderTabs();
+  }
+  
+  showToast(`Cerrado: ${tab.name}`, 'info');
+}
+
+/* ════════════════════════════════════════════
+   LANGUAGE SELECTION
+════════════════════════════════════════════════ */
+function setLang(lang) {
+  const tab = getActiveTab();
+  if (!tab) return;
+  
+  tab.lang = lang;
+  
+  const baseName = tab.name.split('.')[0];
+  const ext = getExtForLang(lang);
+  tab.name = baseName + ext;
+  
+  updateLanguageUI(lang);
+  updateSyntaxHighlight();
+  renderTabs();
+}
+
+function updateLanguageUI(lang) {
+  document.querySelectorAll('.lbtn').forEach(btn => btn.classList.remove('active'));
+  const langButtons = document.querySelectorAll('.lbtn');
+  const langIndex = {python:0, javascript:1, html:2, css:3, dockerfile:4, other:5};
+  if (langButtons[langIndex[lang]]) {
+    langButtons[langIndex[lang]].classList.add('active');
+  }
+  
+  const langNames = {
+    python: 'PYTHON',
+    javascript: 'JAVASCRIPT',
+    html: 'HTML',
+    css: 'CSS',
+    dockerfile: 'DOCKERFILE',
+    other: 'OTHER'
+  };
+  document.getElementById('langChip').textContent = langNames[lang];
+}
+
+function getExtForLang(lang) {
+  const exts = {
+    python: '.py',
+    javascript: '.js',
+    html: '.html',
+    css: '.css',
+    dockerfile: '',
+    other: '.txt'
+  };
+  return exts[lang] || '.txt';
+}
+
+/* ════════════════════════════════════════════
+   FILE OPERATIONS
+════════════════════════════════════════════════ */
+async function saveFile() {
+  const tab = getActiveTab();
+  if (!tab) return;
+
+  // Tiene archivo vinculado a un proyecto → guardar en servidor
+  if (tab.fileInfo && tab.fileInfo.project_id && tab.fileInfo.path) {
+    try {
+      const res = await fetch(`${getAPIBase()}/api/projects/${tab.fileInfo.project_id}/save-file`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({path: tab.fileInfo.path, content: tab.content})
+      });
+      if (res.ok) {
+        tab.savedContent = tab.content;
+        tab.modified = false;
+        renderTabs();
+        showToast(`✓ Guardado: ${tab.name}`, 'ok');
+        return;
+      }
+      showToast('Error del servidor, guardando local...', 'err');
+    } catch(e) {
+      showToast('Sin conexión, guardando local...', 'err');
+    }
+  }
+
+  // Fallback: descarga local
+  downloadCode();
+}
+
+function downloadCode() {
+  const tab = getActiveTab();
+  if (!tab) return;
+  
+  const blob = new Blob([tab.content], {type: 'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = tab.name;
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  tab.savedContent = tab.content;
+  tab.modified = false;
+  renderTabs();
+  
+  showToast(`Guardado: ${tab.name}`, 'ok');
+}
+
+/* ════════════════════════════════════════════
+   API - PROJECTS
+════════════════════════════════════════════════ */
+async function checkAPIConnection() {
+  const dot = document.getElementById('connDot');
+  const label = document.getElementById('connLabel');
+  const apiDot = document.getElementById('apiDot');
+  try {
+    const res = await fetch(`${getAPIBase()}/api/health`, {signal: AbortSignal.timeout(3000)});
+    if (res.ok) {
+      dot.className = 'conn-dot online';
+      label.textContent = 'API ONLINE';
+      apiDot.style.color = 'var(--gr)';
+      return true;
+    }
+  } catch(_) {}
+  dot.className = 'conn-dot error';
+  label.textContent = 'SIN CONEXIÓN';
+  apiDot.style.color = 'var(--re)';
+  return false;
+}
+
+async function loadProjects() {
+  try {
+    const res = await fetch(`${getAPIBase()}/api/projects`);
+    if (!res.ok) return;
+    const data = await res.json();
+    projects = data.projects || [];
+    renderProjectSelect();
+  } catch(_) {}
+}
+
+function renderProjectSelect() {
+  const sel = document.getElementById('proj-select');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">── Seleccionar proyecto ──</option>';
+  projects.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = `${p.name} [${p.category || 'GENERAL'}]`;
+    sel.appendChild(opt);
+  });
+  if (prev) sel.value = prev;
+}
+
+function onProjectChange() {
+  const pid = document.getElementById('proj-select').value;
+  if (!pid) {
+    activeProject = null; ideActiveProject = null;
+    document.getElementById('pi-files').style.display = 'none';
+    document.getElementById('pi-size').style.display = 'none';
+    document.getElementById('fdList').innerHTML = '<div class="fd-empty">Selecciona un proyecto</div>';
+    return;
+  }
+  activeProject = projects.find(p => p.id === pid) || null;
+  if (activeProject) {
+    document.getElementById('pi-files').style.display = 'flex';
+    document.getElementById('pi-size').style.display = 'flex';
+    document.getElementById('pi-fc').textContent = ideActiveProject.file_count || 0;
+    document.getElementById('pi-sz').textContent = ideActiveProject.total_size || '0B';
+    
+    loadProjectFiles(pid);
+    showToast(`Proyecto: ${activeProject.name}`, 'info');
+  }
+}
+
+// Extensiones editables en el IDE
+const IDE_EDITABLE_EXTS = new Set([
+  '.py','.js','.ts','.jsx','.tsx','.mjs','.cjs',
+  '.html','.htm','.css','.scss','.sass','.less',
+  '.txt','.md','.markdown','.json','.jsonc','.json5',
+  '.sh','.bash','.zsh','.fish','.ps1','.bat','.cmd',
+  '.yaml','.yml','.toml','.ini','.cfg','.conf','.env',
+  '.xml','.svg','.log','.csv','.tsv',
+  '.go','.rs','.java','.c','.cpp','.cc','.h','.hpp',
+  '.rb','.php','.r','.lua','.pl','.swift','.kt','.cs',
+  '.sql','.graphql','.proto','.tf','.hcl',
+  '.dockerfile','.gitignore','.editorconfig','.htaccess'
+]);
+
+const IDE_BINARY_TYPES = new Set(['video','image','audio']);
+
+function isEditableFile(f) {
+  const ext = (f.ext || '').toLowerCase();
+  const name = (f.name || '').toLowerCase();
+  if (IDE_BINARY_TYPES.has(f.type)) return false;
+  if (IDE_EDITABLE_EXTS.has(ext)) return true;
+  if (!ext && IDE_EDITABLE_EXTS.has(name)) return true; // Dockerfile, Makefile
+  return false;
+}
+
+function fileIcon(f) {
+  const e = (f.ext || '').toLowerCase();
+  const m = {'.py':'fab fa-python','.js':'fab fa-js-square','.ts':'fab fa-js-square',
+             '.jsx':'fab fa-react','.tsx':'fab fa-react','.html':'fab fa-html5',
+             '.htm':'fab fa-html5','.css':'fab fa-css3-alt','.json':'fas fa-code',
+             '.sh':'fas fa-terminal','.bash':'fas fa-terminal','.md':'fas fa-file-alt',
+             '.sql':'fas fa-database','.java':'fab fa-java','.php':'fab fa-php',
+             '.rb':'fas fa-gem','.go':'fas fa-file-code','.rs':'fas fa-file-code',
+             '.yaml':'fas fa-file-code','.yml':'fas fa-file-code'};
+  return m[e] || 'fas fa-file-code';
+}
+
+async function loadProjectFiles(pid) {
+  const list = document.getElementById('fdList');
+  list.innerHTML = '<div class="fd-empty"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
+  try {
+    const res = await fetch(`${getAPIBase()}/api/projects/${pid}/files`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    const all = data.files || [];
+    const files = all.filter(f => isEditableFile(f));
+
+    if (!files.length) {
+      list.innerHTML = all.length
+        ? `<div class="fd-empty">Sin archivos de código<br><small style="opacity:.5">${all.length} archivo(s) binario(s) excluido(s)</small></div>`
+        : '<div class="fd-empty">Sin archivos en el proyecto</div>';
+      return;
+    }
+
+    list.innerHTML = files.map(f => `
+      <div class="fd-item" onclick="openFileFromAPI('${pid}','${f.path}','${f.name}','${f.ext}')">
+        <i class="${fileIcon(f)}" style="color:var(--c)"></i>
+        <span class="fd-item-name">${f.name}</span>
+        <span class="fd-item-meta">${f.size_human}</span>
+      </div>
+    `).join('');
+  } catch(_) {
+    list.innerHTML = '<div class="fd-empty" style="color:var(--re)">Error al cargar</div>';
+  }
+}
+
+async function openFileFromAPI(pid, path, name, ext) {
+  try {
+    const res = await fetch(`${getAPIBase()}/projects/${pid}/files/${path}`);
+    if (!res.ok) throw new Error();
+    const text = await res.text();
+    
+    const extMap = {
+      py:'python', js:'javascript', ts:'javascript', jsx:'javascript', tsx:'javascript',
+      html:'html', htm:'html', css:'css', scss:'css',
+      json:'other', md:'other', sh:'other', bash:'other',
+      yaml:'other', yml:'other', xml:'other', sql:'other',
+      go:'other', rs:'other', java:'other', c:'other', cpp:'other',
+      rb:'other', php:'other', dockerfile:'dockerfile'
+    };
+    const cleanExt = ext.replace('.','').toLowerCase();
+    const lang = extMap[cleanExt] || 'other';
+
+    // Si ya está abierto en otra pestaña, activarla
+    const existingTab = tabs.find(t => t.fileInfo && t.fileInfo.path === path && t.fileInfo.project_id === pid);
+    if (existingTab) {
+      activeTabId = existingTab.id;
+      renderTabs();
+      renderEditor();
+      showToast(`Ya abierto: ${name}`, 'info');
+      document.getElementById('fileDropdown').classList.remove('open');
+      return;
+    }
+
+    // Cerrar tab de bienvenida si no fue modificado
+    const welcomeIdx = tabs.findIndex(t => t._isWelcome && !t.modified);
+    if (welcomeIdx !== -1) {
+      tabs.splice(welcomeIdx, 1);
+    }
+
+    const newTab = createTab(name, lang, text, {path, project_id: pid});
+    newTab.savedContent = text;
+    activeTabId = newTab.id;
+    renderTabs();
+    renderEditor();
+    showToast(`📂 ${name}`, 'ok');
+    
+    document.getElementById('fileDropdown').classList.remove('open');
+  } catch(err) {
+    showToast(`Error al abrir: ${name}`, 'err');
+  }
+}
+
+/* ════════════════════════════════════════════
+   UI HELPERS
+════════════════════════════════════════════════ */
+function toggleFileDropdown() {
+  const dd = document.getElementById('fileDropdown');
+  dd.classList.toggle('open');
+  if (dd.classList.contains('open') && activeProject) {
+    loadProjectFiles(activeProject.id);  // uses local activeProject
+  }
+}
+
+function showToast(msg, type = 'info') {
+  const ct = document.getElementById('toast-ct');
+  const t = document.createElement('div');
+  const icons = {ok:'fa-circle-check', err:'fa-circle-exclamation', info:'fa-circle-info'};
+  t.className = `toast ${type}`;
+  t.innerHTML = `<i class="fas ${icons[type]}"></i><span>${msg}</span>`;
+  ct.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+/* ════════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+════════════════════════════════════════════════ */
+function handleGlobalKeydown(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    saveFile();
+  }
+  
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+    e.preventDefault();
+    newFile();
+  }
+  
+  if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
+    e.preventDefault();
+    const tab = getActiveTab();
+    if (tab) {
+      closeTab(new Event('click'), tab.id);
+    }
+  }
+  
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Tab') {
+    e.preventDefault();
+    const currentIndex = tabs.findIndex(t => t.id === activeTabId);
+    const nextIndex = (currentIndex + 1) % tabs.length;
+    if (tabs[nextIndex]) {
+      switchToTab(tabs[nextIndex].id);
+    }
+  }
+  
+  if (e.key === 'F9') {
+    e.preventDefault();
+    const tab = getActiveTab();
+    if (tab) {
+      toggleBreakpoint(tab.currentLine);
+    }
+  }
+}
+
+/* ════════════════════════════════════════════
+   POSTMESSAGE BRIDGE — receives commands from Bitácora parent
+════════════════════════════════════════════════ */
+window.addEventListener('message', async (event) => {
+  const msg = event.data;
+  if (!msg || !msg.type) return;
+
+  if (msg.type === 'SYNC_PROJECTS') {
+    if (msg.apiUrl) window._API_BASE_OVERRIDE = msg.apiUrl.replace('/api','');
+    projects = msg.projects || [];
+    const sel = document.getElementById('proj-select');
+    const prevVal = sel ? sel.value : '';
+    renderProjectSelect();
+    // Restore previous selection if still valid
+    if (prevVal && sel) {
+      sel.value = prevVal;
+      if (!sel.value) sel.value = '';  // clear if project was deleted
+    }
+  }
+
+  if (msg.type === 'OPEN_FILE') {
+    const { projId, file: f, apiUrl } = msg;
+    if (apiUrl) window._API_BASE_OVERRIDE = apiUrl.replace('/api','');
+    // Asegurar que el proyecto esté en la lista del selector
+    if (!projects.find(p => p.id === projId)) {
+      await loadProjects();
+    }
+    const sel = document.getElementById('proj-select');
+    if (sel) {
+      sel.value = projId;
+      onProjectChange();
+    }
+    // Abrir el archivo directamente (reemplaza el tab de bienvenida si está intacto)
+    await openFileFromAPI(projId, f.path, f.name, f.ext);
+  }
+});
+
+// Dynamic API_BASE getter — override > same origin > fallback
+function getAPIBase() {
+  return window._API_BASE_OVERRIDE || window.location.origin;
+}
+
+</script>
+</body>
+</html>
