@@ -1104,7 +1104,18 @@ function openCurrentInIDE() {
   if(!editable.includes((f.ext||'').toLowerCase())) {
     toast('Tipo de archivo no editable en IDE','info'); return;
   }
-  const params = new URLSearchParams({ proj:projId, file:f.path, name:f.name, ext:f.ext||'' });
+  _openInIDE(projId, f);
+}
+
+function _openInIDE(projId, f) {
+  const token = getToken() || '';
+  const params = new URLSearchParams({
+    proj: projId,
+    file: f.path,
+    name: f.name,
+    ext:  f.ext || '',
+    ...(token ? { token } : {})
+  });
   window.open(`${IDE_URL}/?${params}`, '_blank');
 }
 
@@ -1826,8 +1837,7 @@ function sendAI(){
 // ─── IDE ─────────────────────────────────────────────────────────────────────
 function openFileInIDEByInfo(projId, fJson){
   const f=typeof fJson==='string'?JSON.parse(fJson):fJson;
-  const params=new URLSearchParams({proj:projId,file:f.path,name:f.name,ext:f.ext||''});
-  window.open(`${IDE_URL}/?${params}`,'_blank');
+  _openInIDE(projId, f);
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────

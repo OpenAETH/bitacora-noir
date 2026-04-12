@@ -477,165 +477,137 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
 <div id="toast-ct"></div>
 
 <script>
+<script>
 /* ════════════════════════════════════════════
-   AETHERYON IDE - JavaScript Module v4
-   Con syntax highlighting y lógica robusta
+   AETHERYON IDE — JavaScript v5.0 (Cloud)
+   Auth-aware · R2 storage · Sync with Bitácora
 ════════════════════════════════════════════════ */
 
-// Config
-// Cuando el IDE corre en su propio puerto (8001), el backend está en 8000
-const _urlParams = new URLSearchParams(window.location.search);
-const API_BASE = _urlParams.get('api') || 
-  window.location.origin.replace(/:800[1-9]/, ':8000');  // IDE=8001 → API=8000
+// ── AUTH ──────────────────────────────────────
+// Token is shared via sessionStorage (same origin as Bitácora)
+// or passed via URL param ?token=... when opening in new tab
+function getToken() {
+  // 1. URL param (passed from Bitácora when opening new tab)
+  const urlToken = new URLSearchParams(window.location.search).get('token');
+  if (urlToken) {
+    // Persist for this session
+    try { sessionStorage.setItem('aetheryon_token', urlToken); } catch(_) {}
+    return urlToken;
+  }
+  // 2. sessionStorage (same origin)
+  try { return sessionStorage.getItem('aetheryon_token'); } catch(_) { return null; }
+}
 
-// Tab management
+function authHeaders(extra = {}) {
+  const t = getToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(t ? { 'Authorization': `Bearer ${t}` } : {}),
+    ...extra
+  };
+}
+
+async function authFetch(url, opts = {}) {
+  const t = getToken();
+  const headers = {
+    ...(t ? { 'Authorization': `Bearer ${t}` } : {}),
+    ...(opts.headers || {})
+  };
+  const res = await fetch(url, { ...opts, headers });
+  if (res.status === 401) {
+    showToast('Sesión expirada — recarga la página', 'err');
+  }
+  return res;
+}
+
+// ── API BASE ──────────────────────────────────
+// In cloud (Render), IDE serves from same origin as API.
+// URL param ?api= allows override for local dev.
+function getAPIBase() {
+  if (window._API_BASE_OVERRIDE) return window._API_BASE_OVERRIDE;
+  const urlApi = new URLSearchParams(window.location.search).get('api');
+  if (urlApi) return urlApi.replace(/\/api$/, '');
+  return window.location.origin;
+}
+
+// ── STATE ─────────────────────────────────────
 let tabs = [];
 let activeTabId = null;
 let nextTabId = 1;
-
-// Minimap drag state
 let minimapDragging = false;
-
-// Global state
 let projects = [];
-let activeProject = null;  // local IDE state
+let activeProject = null;
 
-/* ════════════════════════════════════════════
-   TAB STRUCTURE
-════════════════════════════════════════════════ */
+// ── TAB STRUCTURE ─────────────────────────────
 function createTab(name = 'untitled', lang = 'python', content = '', fileInfo = null) {
   const id = nextTabId++;
   const tab = {
-    id,
-    name,
-    lang,
-    content,
+    id, name, lang, content,
     savedContent: content,
     modified: false,
     breakpoints: new Set(),
-    currentLine: 1,
-    currentCol: 1,
-    scrollTop: 0,
-    scrollLeft: 0,
+    currentLine: 1, currentCol: 1,
+    scrollTop: 0, scrollLeft: 0,
     fileInfo
   };
   tabs.push(tab);
   return tab;
 }
-
-function getActiveTab() {
-  return tabs.find(t => t.id === activeTabId);
-}
-
-function getTabById(id) {
-  return tabs.find(t => t.id === id);
-}
-
+function getActiveTab() { return tabs.find(t => t.id === activeTabId); }
+function getTabById(id) { return tabs.find(t => t.id === id); }
 function removeTab(id) {
-  const index = tabs.findIndex(t => t.id === id);
-  if (index !== -1) {
-    tabs.splice(index, 1);
-  }
+  const i = tabs.findIndex(t => t.id === id);
+  if (i !== -1) tabs.splice(i, 1);
 }
 
 /* ════════════════════════════════════════════
    SYNTAX HIGHLIGHTING
 ════════════════════════════════════════════════ */
-
 function highlightSyntax(code, lang) {
-  // Escape HTML
-  code = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  
-  if (lang === 'python') {
-    return highlightPython(code);
-  } else if (lang === 'javascript') {
-    return highlightJavaScript(code);
-  } else if (lang === 'html') {
-    return highlightHTML(code);
-  } else if (lang === 'css') {
-    return highlightCSS(code);
-  } else if (lang === 'dockerfile') {
-    return highlightDockerfile(code);
-  }
-  
+  code = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if (lang === 'python')     return highlightPython(code);
+  if (lang === 'javascript') return highlightJavaScript(code);
+  if (lang === 'html')       return highlightHTML(code);
+  if (lang === 'css')        return highlightCSS(code);
+  if (lang === 'dockerfile') return highlightDockerfile(code);
   return code;
 }
 
 function highlightPython(code) {
-  const keywords = /\b(def|class|if|elif|else|for|while|return|import|from|as|try|except|finally|with|lambda|yield|async|await|pass|break|continue|global|nonlocal|assert|raise|del|in|is|not|and|or|True|False|None)\b/g;
-  const strings = /(["'`])((?:\\.|(?!\1).)*?)\1/g;
-  const comments = /(#.*$)/gm;
-  const numbers = /\b(\d+\.?\d*)\b/g;
-  const functions = /\b([a-zA-Z_]\w*)\s*(?=\()/g;
-  
-  /* code = code.replace(comments, '<span class="syn-comment">$1</span>'); */ /* COMENTADO PORQUE GENERA ERROR */
-  /* code = code.replace(strings, '<span class="syn-string">$1$2$1</span>'); */ /* COMENTADO PORQUE GENERA ERROR */
-  code = code.replace(keywords, '<span class="syn-keyword">$1</span>');
-  code = code.replace(functions, '<span class="syn-function">$1</span>');
-  code = code.replace(numbers, '<span class="syn-number">$1</span>');
-  
+  const kw = /\b(def|class|if|elif|else|for|while|return|import|from|as|try|except|finally|with|lambda|yield|async|await|pass|break|continue|global|nonlocal|assert|raise|del|in|is|not|and|or|True|False|None)\b/g;
+  code = code.replace(kw, '<span class="syn-keyword">$1</span>');
+  code = code.replace(/\b([a-zA-Z_]\w*)\s*(?=\()/g, '<span class="syn-function">$1</span>');
+  code = code.replace(/\b(\d+\.?\d*)\b/g, '<span class="syn-number">$1</span>');
   return code;
 }
-
 function highlightJavaScript(code) {
-  const keywords = /\b(function|const|let|var|if|else|for|while|do|switch|case|break|return|class|extends|import|export|from|default|async|await|try|catch|finally|throw|new|this|super|static|typeof|instanceof|in|of|delete|void|null|undefined|true|false)\b/g;
-  const strings = /(["'`])((?:\\.|(?!\1).)*?)\1/g;
-  const comments = /(\/\/.*$|\/\*[\s\S]*?\*\/)/gm;
-  const numbers = /\b(\d+\.?\d*)\b/g;
-  const functions = /\b([a-zA-Z_$]\w*)\s*(?=\()/g;
-  
-  /* code = code.replace(comments, '<span class="syn-comment">$1</span>'); */   /* COMENTADO PORQUE GENERA ERROR */
-  /* code = code.replace(strings, '<span class="syn-string">$1$2$1</span>'); */   /* COMENTADO PORQUE GENERA ERROR */
-  code = code.replace(keywords, '<span class="syn-keyword">$1</span>');
-  code = code.replace(functions, '<span class="syn-function">$1</span>');
-  code = code.replace(numbers, '<span class="syn-number">$1</span>');
-  
+  const kw = /\b(function|const|let|var|if|else|for|while|do|switch|case|break|return|class|extends|import|export|from|default|async|await|try|catch|finally|throw|new|this|super|static|typeof|instanceof|in|of|delete|void|null|undefined|true|false)\b/g;
+  code = code.replace(kw, '<span class="syn-keyword">$1</span>');
+  code = code.replace(/\b([a-zA-Z_$]\w*)\s*(?=\()/g, '<span class="syn-function">$1</span>');
+  code = code.replace(/\b(\d+\.?\d*)\b/g, '<span class="syn-number">$1</span>');
   return code;
 }
-
 function highlightHTML(code) {
-  const tags = /(&lt;\/?)([\w-]+)(.*?)(&gt;)/g;
-  const attributes = /\s([\w-]+)(?==)/g;
-  const strings = /(["'])(.*?)\1/g;
-  const comments = /(&lt;!--[\s\S]*?--&gt;)/g;
-  
-  code = code.replace(comments, '<span class="syn-comment">$1</span>');
-  code = code.replace(tags, (match, open, tag, content, close) => {
-    let highlighted = open + '<span class="syn-tag">' + tag + '</span>';
-    content = content.replace(attributes, ' <span class="syn-attribute">$1</span>');
-    content = content.replace(strings, '<span class="syn-value">$1$2$1</span>');
-    return highlighted + content + close;
+  code = code.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="syn-comment">$1</span>');
+  code = code.replace(/(&lt;\/?)([\w-]+)(.*?)(&gt;)/g, (m, open, tag, content, close) => {
+    content = content.replace(/\s([\w-]+)(?==)/g, ' <span class="syn-attribute">$1</span>');
+    content = content.replace(/(["'])(.*?)\1/g, '<span class="syn-value">$1$2$1</span>');
+    return open + '<span class="syn-tag">' + tag + '</span>' + content + close;
   });
-  
   return code;
 }
-
 function highlightCSS(code) {
-  const selectors = /^([.#]?[\w-]+\s*[,{])/gm;
-  const properties = /\b([\w-]+)(?=\s*:)/g;
-  const values = /:\s*([^;]+);/g;
-  const comments = /(\/\*[\s\S]*?\*\/)/g;
-  const strings = /(["'])(.*?)\1/g;
-  const numbers = /\b(\d+\.?\d*(?:px|em|rem|%|vh|vw)?)\b/g;
-  
-  /* code = code.replace(comments, '<span class="syn-comment">$1</span>'); */   /* COMENTADO PORQUE GENERA ERROR */
-  code = code.replace(selectors, '<span class="syn-selector">$1</span>');
-  code = code.replace(properties, '<span class="syn-property">$1</span>');
-  code = code.replace(strings, '<span class="syn-string">$1$2$1</span>');
-  code = code.replace(numbers, '<span class="syn-number">$1</span>');
-  
+  code = code.replace(/^([.#]?[\w-]+\s*[,{])/gm, '<span class="syn-selector">$1</span>');
+  code = code.replace(/\b([\w-]+)(?=\s*:)/g, '<span class="syn-property">$1</span>');
+  code = code.replace(/(["'])(.*?)\1/g, '<span class="syn-string">$1$2$1</span>');
+  code = code.replace(/\b(\d+\.?\d*(?:px|em|rem|%|vh|vw)?)\b/g, '<span class="syn-number">$1</span>');
   return code;
 }
-
 function highlightDockerfile(code) {
-  const keywords = /\b(FROM|RUN|CMD|LABEL|EXPOSE|ENV|ADD|COPY|ENTRYPOINT|VOLUME|USER|WORKDIR|ARG|ONBUILD|STOPSIGNAL|HEALTHCHECK|SHELL)\b/g;
-  const strings = /(["'])((?:\\.|(?!\1).)*?)\1/g;
-  const comments = /(#.*$)/gm;
-  
-  code = code.replace(comments, '<span class="syn-comment">$1</span>');
-  code = code.replace(strings, '<span class="syn-string">$1$2$1</span>');
-  code = code.replace(keywords, '<span class="syn-keyword">$1</span>');
-  
+  const kw = /\b(FROM|RUN|CMD|LABEL|EXPOSE|ENV|ADD|COPY|ENTRYPOINT|VOLUME|USER|WORKDIR|ARG|ONBUILD|STOPSIGNAL|HEALTHCHECK|SHELL)\b/g;
+  code = code.replace(/(#.*$)/gm, '<span class="syn-comment">$1</span>');
+  code = code.replace(/(["'])((?:\\.|(?!\1).)*?)\1/g, '<span class="syn-string">$1$2$1</span>');
+  code = code.replace(kw, '<span class="syn-keyword">$1</span>');
   return code;
 }
 
@@ -644,475 +616,322 @@ function highlightDockerfile(code) {
 ════════════════════════════════════════════════ */
 window.addEventListener('DOMContentLoaded', async () => {
   initEditor();
-  checkAPIConnection();
+  await checkAPIConnection();
   await loadProjects();
 
-  // Tell parent frame we are ready (cuando corre en iframe)
   if (window.parent !== window) {
     window.parent.postMessage({ type: 'IDE_READY' }, '*');
   }
 
-  // ── Modo standalone: leer parámetros de la URL ──
-  // URL: http://localhost:8001/?proj=prueba_06&file=documents/app.py&name=app.py&ext=.py
+  // Read URL params: ?proj=&file=&name=&ext=&token=
   const _p = new URLSearchParams(window.location.search);
-  const _projId = _p.get('proj');
+  const _projId   = _p.get('proj');
   const _filePath = _p.get('file');
   const _fileName = _p.get('name');
   const _fileExt  = _p.get('ext') || '';
+
   if (_projId && _filePath) {
-    // Seleccionar proyecto en dropdown
+    // Ensure project is in list
+    if (!projects.find(p => p.id === _projId)) await loadProjects();
     const sel = document.getElementById('proj-select');
-    if (sel) {
-      sel.value = _projId;
-      onProjectChange();
-    }
-    // Abrir archivo (reemplaza el tab de bienvenida)
+    if (sel) { sel.value = _projId; onProjectChange(); }
     await openFileFromAPI(_projId, _filePath, _fileName || _filePath.split('/').pop(), _fileExt);
-    // Limpiar URL para no reabrir al recargar
-    window.history.replaceState({}, '', window.location.pathname);
+    // Clean URL (keep it tidy but keep token param for refresh)
+    const clean = new URL(window.location.href);
+    ['proj','file','name','ext'].forEach(k => clean.searchParams.delete(k));
+    window.history.replaceState({}, '', clean.toString());
   }
 
   document.addEventListener('click', (e) => {
-    const dropdown = document.getElementById('fileDropdown');
-    const btn = e.target.closest('.pb-files');
-    if (!btn && dropdown.classList.contains('open')) {
-      dropdown.classList.remove('open');
+    const dd = document.getElementById('fileDropdown');
+    if (!e.target.closest('.pb-files') && dd.classList.contains('open')) {
+      dd.classList.remove('open');
     }
   });
-  
   document.addEventListener('keydown', handleGlobalKeydown);
 });
 
 function initEditor() {
-  const startCode = `# Bienvenido a AETHERYON IDE
-# Escribe tu código aquí
-
-def main():
-    print("Hello, AETHERYON!")
-    for i in range(10):
-        print(f"Iteración {i}")
-    
-if __name__ == "__main__":
-    main()
-`;
+  const startCode = `# Bienvenido a AETHERYON IDE\n# Abre un archivo desde el proyecto o escribe aquí\n\ndef main():\n    print("Hello, AETHERYON!")\n    for i in range(10):\n        print(f"Iteración {i}")\n\nif __name__ == "__main__":\n    main()\n`;
   const tab = createTab('untitled.py', 'python', startCode);
-  tab._isWelcome = true;  // marcador: reemplazar al abrir archivo real
+  tab._isWelcome = true;
   activeTabId = tab.id;
-  tab.savedContent = startCode;
-  
+  renderTabs();
+  renderEditor();
+  startClock();
+}
+
+function startClock() {
+  const el = document.getElementById('ide-clock');
+  if (!el) return;
+  const tick = () => { el.textContent = new Date().toTimeString().slice(0,8); };
+  tick(); setInterval(tick, 1000);
+}
+
+/* ════════════════════════════════════════════
+   EDITOR RENDERING
+════════════════════════════════════════════════ */
+function renderTabs() {
+  const bar = document.getElementById('tabbar');
+  if (!bar) return;
+  bar.innerHTML = tabs.map(tab => `
+    <div class="tab ${tab.id === activeTabId ? 'active' : ''} ${tab.modified ? 'modified' : ''}"
+         onclick="switchToTab(${tab.id})">
+      <i class="${fileIconClass(tab.name)}" style="font-size:10px"></i>
+      <span>${escH(tab.name)}</span>
+      <span class="tab-close" onclick="closeTab(event,${tab.id})"><i class="fas fa-times" style="color:var(--td);font-size:9px"></i></span>
+    </div>`).join('') +
+    `<div class="tab-add" onclick="newFile()" title="Nuevo archivo"><i class="fas fa-plus" style="font-size:10px"></i></div>`;
+}
+
+function fileIconClass(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  const m = { py:'fab fa-python', js:'fab fa-js-square', ts:'fab fa-js-square',
+              jsx:'fab fa-react', tsx:'fab fa-react', html:'fab fa-html5',
+              css:'fab fa-css3-alt', json:'fas fa-code', sh:'fas fa-terminal',
+              md:'fas fa-file-alt', sql:'fas fa-database', java:'fab fa-java',
+              php:'fab fa-php', go:'fas fa-file-code', rs:'fas fa-file-code',
+              yaml:'fas fa-file-code', yml:'fas fa-file-code', dockerfile:'fab fa-docker' };
+  return m[ext] || 'fas fa-file-code';
+}
+
+function switchToTab(id) {
+  const cur = getActiveTab();
+  if (cur) { cur.scrollTop = document.querySelector('.editor-scroll')?.scrollTop || 0; }
+  activeTabId = id;
   renderTabs();
   renderEditor();
 }
 
-/* ════════════════════════════════════════════
-   TAB BAR RENDERING
-════════════════════════════════════════════════ */
-function renderTabs() {
-  const tabbar = document.getElementById('tabbar');
-  
-  const tabsHTML = tabs.map(tab => {
-    const active = tab.id === activeTabId ? 'active' : '';
-    const modified = tab.modified ? 'modified' : '';
-    const icon = getIconForLang(tab.lang);
-    
-    return `
-      <div class="tab ${active} ${modified}" data-tab-id="${tab.id}" onclick="switchToTab(${tab.id})">
-        <i class="${icon}"></i>
-        <span>${tab.name}</span>
-        <div class="tab-close" onclick="closeTab(event, ${tab.id})">
-          <i class="fas fa-times"></i>
-        </div>
-      </div>
-    `;
-  }).join('');
-  
-  tabbar.innerHTML = tabsHTML + `
-    <div class="tab-add" onclick="newFile()">
-      <i class="fas fa-plus"></i>
-    </div>
-  `;
-}
-
-function getIconForLang(lang) {
-  const icons = {
-    python: 'fab fa-python',
-    javascript: 'fab fa-js',
-    html: 'fab fa-html5',
-    css: 'fab fa-css3',
-    dockerfile: 'fab fa-docker',
-    other: 'fas fa-file-code'
-  };
-  return icons[lang] || 'fas fa-file-code';
-}
-
-/* ════════════════════════════════════════════
-   EDITOR RENDERING - ROBUST
-════════════════════════════════════════════════ */
-function renderEditor() {
-  const tab = getActiveTab();
-  if (!tab) return;
-  
-  const wrap = document.getElementById('editorWrap');
-  
-  wrap.innerHTML = `
-    <div class="line-numbers" id="lineNumbers">
-      <div class="line-numbers-inner" id="lineNumbersInner"></div>
-    </div>
-    <div class="editor-scroll" id="editorScroll">
-      <div class="editor-layers" id="editorLayers">
-        <div class="current-line-highlight" id="lineHighlight"></div>
-        <div class="syntax-highlight" id="syntaxHighlight"></div>
-        <textarea class="editor-code" id="editor" spellcheck="false" placeholder="# Escribe tu código aquí..."></textarea>
-      </div>
-    </div>
-    </div>
-  `;
-  
-  const editor = document.getElementById('editor');
-  const editorScroll = document.getElementById('editorScroll');
-  const minimap = document.getElementById('minimap');
-  
-  // Set content
-  editor.value = tab.content;
-  
-  // Restore scroll position
-  editorScroll.scrollTop = tab.scrollTop;
-  editorScroll.scrollLeft = tab.scrollLeft;
-  
-  // Event listeners
-  editorScroll.addEventListener('scroll', syncScroll);
-  editor.addEventListener('input', onEditorInput);
-  editor.addEventListener('keyup', updateCursorPosition);
-  editor.addEventListener('click', updateCursorPosition);
-  editor.addEventListener('keydown', handleEditorKeydown);
-  
-  // Minimap drag
-  
-  
-  
-  
-  // Initial update
-  updateInterface();
-  updateCursorPosition();
-  updateLanguageUI(tab.lang);
-  updateSyntaxHighlight();
-}
-
-/* ════════════════════════════════════════════
-   EDITOR CORE FUNCTIONS
-════════════════════════════════════════════════ */
-function onEditorInput() {
-  const tab = getActiveTab();
-  if (!tab) return;
-  
-  const editor = document.getElementById('editor');
-  tab.content = editor.value;
-  tab.modified = (tab.content !== tab.savedContent);
-  
-  updateInterface();
-  updateSyntaxHighlight();
-  renderTabs();
-}
-
-function updateInterface() {
-  updateLineNumbers();
-  updateFileStats();
-  
-  updateCurrentLineHighlight();
-  updateEditorSize();
-}
-
-function updateEditorSize() {
-  const tab = getActiveTab();
-  if (!tab) return;
-  
-  const editor = document.getElementById('editor');
-  const layers = document.getElementById('editorLayers');
-  const syntaxHighlight = document.getElementById('syntaxHighlight');
-  
-  if (!editor || !layers || !syntaxHighlight) return;
-  
-  // Calculate required dimensions
-  const lines = tab.content.split('\n');
-  const lineHeight = 23.4;
-  const charWidth = 7.8; // Approximate monospace character width
-  const padding = 32; // 16px left + 16px right
-  
-  const maxLineLength = Math.max(...lines.map(l => l.length), 50);
-  const minHeight = lines.length * lineHeight + 28; // 14px top + 14px bottom
-  const minWidth = maxLineLength * charWidth + padding;
-  
-  // Set dimensions - PERO con un máximo para evitar scroll infinito
-  layers.style.minHeight = minHeight + 'px';
-  layers.style.minWidth = '100%'; // Cambiado de minWidth fijo a 100%
-  
-  // Sync syntax highlight and textarea dimensions
-  syntaxHighlight.style.minHeight = minHeight + 'px';
-  syntaxHighlight.style.width = '100%'; // Cambiado a porcentaje
-  editor.style.minHeight = minHeight + 'px';
-  editor.style.width = '100%'; // Cambiado a porcentaje
-}
-
-
-function updateSyntaxHighlight() {
-  const tab = getActiveTab();
-  if (!tab) return;
-  
-  const syntaxHighlight = document.getElementById('syntaxHighlight');
-  if (!syntaxHighlight) return;
-  
-  const highlighted = highlightSyntax(tab.content, tab.lang);
-  syntaxHighlight.innerHTML = highlighted;
-}
-
-function updateLineNumbers() {
-  const tab = getActiveTab();
-  if (!tab) return;
-  
-  const lineNumbersInner = document.getElementById('lineNumbersInner');
-  if (!lineNumbersInner) return;
-  
-  const lines = tab.content.split('\n');
-  
-  lineNumbersInner.innerHTML = lines.map((_, i) => {
-    const lineNum = i + 1;
-    const isCurrent = lineNum === tab.currentLine;
-    const isBP = tab.breakpoints.has(lineNum);
-    
-    let classes = 'line-number';
-    if (isCurrent) classes += ' current';
-    if (isBP) classes += ' bp';
-    
-    return `<div class="${classes}" data-line="${lineNum}" onclick="toggleBreakpoint(${lineNum})">
-      <span class="ln-text">${lineNum}</span>
-    </div>`;
-  }).join('');
-  
-  document.getElementById('bpCount').textContent = tab.breakpoints.size;
-}
-
-function updateCurrentLineHighlight() {
-  const tab = getActiveTab();
-  if (!tab) return;
-  
-  const lineHighlight = document.getElementById('lineHighlight');
-  if (!lineHighlight) return;
-  
-  const lineTop = 14 + (tab.currentLine - 1) * 23.4;
-  lineHighlight.style.top = lineTop + 'px';
-}
-
-function updateFileStats() {
-  const tab = getActiveTab();
-  if (!tab) return;
-  
-  const lines = tab.content.split('\n');
-  const chars = tab.content.length;
-  const bytes = new Blob([tab.content]).size;
-  
-  document.getElementById('lineCount').textContent = lines.length;
-  document.getElementById('charCount').textContent = chars;
-  document.getElementById('sizeCount').textContent = bytes;
-}
-
-function updateCursorPosition() {
-  const tab = getActiveTab();
-  if (!tab) return;
-  
-  const editor = document.getElementById('editor');
-  if (!editor) return;
-  
-  const text = editor.value;
-  const cursorPos = editor.selectionStart;
-  
-  const textBeforeCursor = text.substring(0, cursorPos);
-  tab.currentLine = textBeforeCursor.split('\n').length;
-  
-  const lastNewline = textBeforeCursor.lastIndexOf('\n');
-  tab.currentCol = cursorPos - lastNewline;
-  
-  document.getElementById('sb-ln').textContent = tab.currentLine;
-  document.getElementById('sb-col').textContent = tab.currentCol;
-  
-  updateLineNumbers();
-  updateCurrentLineHighlight();
-}
-
-function syncScroll() {
-  const tab = getActiveTab();
-  if (!tab) return;
-  
-  const editorScroll = document.getElementById('editorScroll');
-  const lineNumbers = document.getElementById('lineNumbers');
-  
-  if (!editorScroll || !lineNumbers) return;
-  
-  tab.scrollTop = editorScroll.scrollTop;
-  tab.scrollLeft = editorScroll.scrollLeft;
-  
-  lineNumbers.scrollTop = editorScroll.scrollTop;
-  
-  
-}
-
-function handleEditorKeydown(e) {
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    const editor = document.getElementById('editor');
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    editor.value = editor.value.substring(0, start) + '    ' + editor.value.substring(end);
-    editor.selectionStart = editor.selectionEnd = start + 4;
-    onEditorInput();
+function closeTab(e, id) {
+  e.stopPropagation();
+  const tab = getTabById(id);
+  if (tab && tab.modified) {
+    if (!confirm(`"${tab.name}" tiene cambios sin guardar. ¿Cerrar igual?`)) return;
   }
-}
-
-/* ════════════════════════════════════════════
-   BREAKPOINTS
-════════════════════════════════════════════════ */
-function toggleBreakpoint(lineNum) {
-  const tab = getActiveTab();
-  if (!tab) return;
-  
-  if (tab.breakpoints.has(lineNum)) {
-    tab.breakpoints.delete(lineNum);
-    showToast(`Breakpoint eliminado: Línea ${lineNum}`, 'info');
-  } else {
-    tab.breakpoints.add(lineNum);
-    showToast(`Breakpoint agregado: Línea ${lineNum}`, 'ok');
+  removeTab(id);
+  if (activeTabId === id) {
+    activeTabId = tabs.length ? tabs[tabs.length - 1].id : null;
+    if (!tabs.length) {
+      const t = createTab('untitled.py','python',''); t._isWelcome = true; activeTabId = t.id;
+    }
   }
-  
-  updateLineNumbers();
-  
-}
-
-/* ════════════════════════════════════════════
-   MINIMAP - OPTIMIZED with DRAG
-════════════════════════════════════════════════ */
-
-
-
-
-
-
-function switchToTab(tabId) {
-  const tab = getTabById(tabId);
-  if (!tab || tabId === activeTabId) return;
-  
-  activeTabId = tabId;
   renderTabs();
   renderEditor();
 }
 
 function newFile() {
-  const tab = getActiveTab();
-  
-  if (tab && tab.modified) {
-    if (!confirm('¿Descartar cambios en el archivo actual?')) return;
-  }
-  
-
-  const templates = {
-    python: '# Nuevo archivo Python\n\n',
-    javascript: '// Nuevo archivo JavaScript\n\n',
-    html: '<!DOCTYPE html>\n<html>\n<head>\n  <title>Nuevo</title>\n</head>\n<body>\n  \n</body>\n</html>\n',
-    css: '/* Nuevo archivo CSS */\n\n',
-    dockerfile: 'FROM python:3.11-slim\n\n',
-    other: '# Nuevo archivo\n\n'
-  };
-  
-  const lang = tab ? tab.lang : 'python';
-  const template = templates[lang];
-  const ext = getExtForLang(lang);
-  const name = 'untitled' + ext;
-  
-  const newTab = createTab(name, lang, template);
-  newTab.savedContent = template;
-  
-  activeTabId = newTab.id;
+  const tab = createTab('untitled.py', 'python', '');
+  activeTabId = tab.id;
   renderTabs();
   renderEditor();
-  
-  showToast('Nuevo archivo creado', 'ok');
+  updateEditorStats('');
 }
 
-function closeTab(e, tabId) {
-  e.stopPropagation();
-  
-  const tab = getTabById(tabId);
+function renderEditor() {
+  const tab = getActiveTab();
+  const wrap = document.getElementById('editorWrap');
+  if (!tab || !wrap) return;
+  wrap.innerHTML = `
+    <div class="line-numbers" id="lineNumbers"><div class="line-numbers-inner" id="lineNumInner"></div></div>
+    <div class="editor-scroll" id="editorScroll">
+      <div class="editor-layers" id="editorLayers">
+        <div class="current-line-highlight" id="curLineHL"></div>
+        <div class="syntax-highlight" id="syntaxHL" aria-hidden="true"></div>
+        <textarea class="editor-code" id="editorTA" spellcheck="false" autocorrect="off"
+          autocapitalize="off" wrap="off"
+          onkeydown="handleEditorKey(event)"
+          oninput="onEditorInput()"
+          onscroll="syncScroll()"
+          onclick="updateCursor()"
+          onkeyup="updateCursor()"
+        ></textarea>
+      </div>
+    </div>`;
+
+  const ta = document.getElementById('editorTA');
+  ta.value = tab.content;
+  updateSyntax(tab.content, tab.lang);
+  updateLineNumbers(tab.content);
+  updateEditorStats(tab.content);
+  updateLangChip(tab.lang);
+
+  // Restore scroll
+  requestAnimationFrame(() => {
+    const scroll = document.getElementById('editorScroll');
+    if (scroll) scroll.scrollTop = tab.scrollTop || 0;
+    ta.focus();
+    updateCursor();
+  });
+}
+
+function onEditorInput() {
+  const tab = getActiveTab();
   if (!tab) return;
-  
-  if (tab.modified) {
-    if (!confirm(`¿Cerrar "${tab.name}" sin guardar?`)) return;
+  const ta = document.getElementById('editorTA');
+  const content = ta.value;
+  const wasModified = tab.modified;
+  tab.content = content;
+  tab.modified = content !== tab.savedContent;
+  updateSyntax(content, tab.lang);
+  updateLineNumbers(content);
+  updateEditorStats(content);
+  if (tab.modified !== wasModified) renderTabs();
+  updateCursor();
+}
+
+function syncScroll() {
+  const scroll = document.getElementById('editorScroll');
+  const hl = document.getElementById('syntaxHL');
+  const ln = document.getElementById('lineNumbers');
+  if (!scroll) return;
+  if (hl) { hl.style.top = `-${scroll.scrollTop}px`; hl.style.left = `-${scroll.scrollLeft}px`; }
+  if (ln) ln.scrollTop = scroll.scrollTop;
+}
+
+function updateSyntax(content, lang) {
+  const hl = document.getElementById('syntaxHL');
+  if (!hl) return;
+  hl.innerHTML = highlightSyntax(content, lang);
+  // Resize layers to match content
+  const ta = document.getElementById('editorTA');
+  if (ta) {
+    const h = Math.max(ta.scrollHeight, 400);
+    const w = Math.max(ta.scrollWidth, 600);
+    hl.style.width = w + 'px';
+    hl.style.minHeight = h + 'px';
+    ta.style.minHeight = h + 'px';
+    ta.style.width = w + 'px';
+    document.getElementById('editorLayers').style.minHeight = h + 'px';
   }
-  
-  removeTab(tabId);
-  
-  if (tabId === activeTabId) {
-    if (tabs.length > 0) {
-      activeTabId = tabs[tabs.length - 1].id;
-      renderTabs();
-      renderEditor();
-    } else {
-      const newTab = createTab('untitled.py', 'python', '# Nuevo archivo\n\n');
-      activeTabId = newTab.id;
-      renderTabs();
-      renderEditor();
-    }
-  } else {
-    renderTabs();
+}
+
+function updateLineNumbers(content) {
+  const inner = document.getElementById('lineNumInner');
+  if (!inner) return;
+  const lines = content.split('\n');
+  const tab = getActiveTab();
+  const bp = tab ? tab.breakpoints : new Set();
+  inner.innerHTML = lines.map((_, i) => {
+    const n = i + 1;
+    const hasBp = bp.has(n);
+    return `<div class="line-number ${hasBp ? 'bp' : ''}" onclick="toggleBreakpoint(${n})">
+      <span class="ln-text">${n}</span></div>`;
+  }).join('');
+}
+
+function updateCursor() {
+  const ta = document.getElementById('editorTA');
+  const tab = getActiveTab();
+  if (!ta || !tab) return;
+  const text = ta.value.substring(0, ta.selectionStart);
+  const lines = text.split('\n');
+  const ln = lines.length;
+  const col = lines[lines.length - 1].length + 1;
+  tab.currentLine = ln; tab.currentCol = col;
+  setEl('sb-ln', ln); setEl('sb-col', col);
+  // Highlight current line
+  const hl = document.getElementById('curLineHL');
+  if (hl) {
+    const lhPx = 23.4;
+    hl.style.top = ((ln - 1) * lhPx) + 'px';
   }
-  
-  showToast(`Cerrado: ${tab.name}`, 'info');
+  // Sync line number highlight
+  document.querySelectorAll('.line-number').forEach((el, i) => {
+    el.classList.toggle('current', i + 1 === ln);
+  });
+}
+
+function updateEditorStats(content) {
+  const lines = content.split('\n').length;
+  const chars = content.length;
+  const bytes = new TextEncoder().encode(content).length;
+  setEl('lineCount', lines);
+  setEl('charCount', chars);
+  setEl('sizeCount', bytes < 1024 ? bytes : Math.round(bytes/1024));
+  document.getElementById('sizeCount') && (document.getElementById('sizeCount').nextSibling
+    ? document.getElementById('sizeCount').nextSibling.textContent = bytes < 1024 ? 'B' : 'KB'
+    : null);
+}
+
+function toggleBreakpoint(lineNum) {
+  const tab = getActiveTab();
+  if (!tab) return;
+  if (tab.breakpoints.has(lineNum)) tab.breakpoints.delete(lineNum);
+  else tab.breakpoints.add(lineNum);
+  const ta = document.getElementById('editorTA');
+  updateLineNumbers(ta ? ta.value : tab.content);
+  setEl('bpCount', tab.breakpoints.size);
+}
+
+function handleEditorKey(e) {
+  const ta = e.target;
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = ta.selectionStart, end = ta.selectionEnd;
+    ta.value = ta.value.substring(0, s) + '    ' + ta.value.substring(end);
+    ta.selectionStart = ta.selectionEnd = s + 4;
+    onEditorInput();
+    return;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const s = ta.selectionStart;
+    const lines = ta.value.substring(0, s).split('\n');
+    const curLine = lines[lines.length - 1];
+    const indent = curLine.match(/^(\s*)/)[1];
+    const extra = curLine.trimEnd().endsWith(':') ? '    ' : '';
+    const ins = '\n' + indent + extra;
+    ta.value = ta.value.substring(0, s) + ins + ta.value.substring(ta.selectionEnd);
+    ta.selectionStart = ta.selectionEnd = s + ins.length;
+    onEditorInput();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+    e.preventDefault();
+    toggleComment(ta);
+    return;
+  }
+}
+
+function toggleComment(ta) {
+  const s = ta.selectionStart, end = ta.selectionEnd;
+  const lines = ta.value.split('\n');
+  let startLine = ta.value.substring(0, s).split('\n').length - 1;
+  let endLine   = ta.value.substring(0, end).split('\n').length - 1;
+  const prefix = '# ';
+  const allCommented = lines.slice(startLine, endLine + 1).every(l => l.trimStart().startsWith('#'));
+  for (let i = startLine; i <= endLine; i++) {
+    lines[i] = allCommented ? lines[i].replace(/^(\s*)#\s?/, '$1') : prefix + lines[i];
+  }
+  ta.value = lines.join('\n');
+  onEditorInput();
 }
 
 /* ════════════════════════════════════════════
-   LANGUAGE SELECTION
+   LANGUAGE + MINIMAP
 ════════════════════════════════════════════════ */
 function setLang(lang) {
   const tab = getActiveTab();
   if (!tab) return;
-  
   tab.lang = lang;
-  
-  const baseName = tab.name.split('.')[0];
-  const ext = getExtForLang(lang);
-  tab.name = baseName + ext;
-  
-  updateLanguageUI(lang);
-  updateSyntaxHighlight();
-  renderTabs();
+  document.querySelectorAll('.lbtn').forEach(b => b.classList.toggle('active', b.onclick?.toString().includes(`'${lang}'`)));
+  const ta = document.getElementById('editorTA');
+  if (ta) updateSyntax(ta.value, lang);
+  updateLangChip(lang);
 }
 
-function updateLanguageUI(lang) {
-  document.querySelectorAll('.lbtn').forEach(btn => btn.classList.remove('active'));
-  const langButtons = document.querySelectorAll('.lbtn');
-  const langIndex = {python:0, javascript:1, html:2, css:3, dockerfile:4, other:5};
-  if (langButtons[langIndex[lang]]) {
-    langButtons[langIndex[lang]].classList.add('active');
-  }
-  
-  const langNames = {
-    python: 'PYTHON',
-    javascript: 'JAVASCRIPT',
-    html: 'HTML',
-    css: 'CSS',
-    dockerfile: 'DOCKERFILE',
-    other: 'OTHER'
-  };
-  document.getElementById('langChip').textContent = langNames[lang];
+function updateLangChip(lang) {
+  const names = { python:'PYTHON', javascript:'JS', html:'HTML', css:'CSS', dockerfile:'DOCKERFILE', other:'OTHER' };
+  setEl('langChip', names[lang] || lang.toUpperCase());
+  document.querySelectorAll('.lbtn').forEach(b => {
+    const txt = b.textContent.trim().toLowerCase();
+    b.classList.toggle('active', txt === lang || (lang==='javascript' && txt==='js'));
+  });
 }
 
 function getExtForLang(lang) {
-  const exts = {
-    python: '.py',
-    javascript: '.js',
-    html: '.html',
-    css: '.css',
-    dockerfile: '',
-    other: '.txt'
-  };
-  return exts[lang] || '.txt';
+  return { python:'.py', javascript:'.js', html:'.html', css:'.css', dockerfile:'', other:'.txt' }[lang] || '.txt';
 }
 
 /* ════════════════════════════════════════════
@@ -1121,14 +940,12 @@ function getExtForLang(lang) {
 async function saveFile() {
   const tab = getActiveTab();
   if (!tab) return;
-
-  // Tiene archivo vinculado a un proyecto → guardar en servidor
   if (tab.fileInfo && tab.fileInfo.project_id && tab.fileInfo.path) {
     try {
-      const res = await fetch(`${getAPIBase()}/api/projects/${tab.fileInfo.project_id}/save-file`, {
+      const res = await authFetch(`${getAPIBase()}/api/projects/${tab.fileInfo.project_id}/save-file`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({path: tab.fileInfo.path, content: tab.content})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: tab.fileInfo.path, content: tab.content })
       });
       if (res.ok) {
         tab.savedContent = tab.content;
@@ -1137,60 +954,53 @@ async function saveFile() {
         showToast(`✓ Guardado: ${tab.name}`, 'ok');
         return;
       }
-      showToast('Error del servidor, guardando local...', 'err');
+      showToast('Error del servidor — descargando localmente', 'err');
     } catch(e) {
-      showToast('Sin conexión, guardando local...', 'err');
+      showToast('Sin conexión — descargando localmente', 'err');
     }
   }
-
-  // Fallback: descarga local
   downloadCode();
 }
 
 function downloadCode() {
   const tab = getActiveTab();
   if (!tab) return;
-  
-  const blob = new Blob([tab.content], {type: 'text/plain'});
+  const blob = new Blob([tab.content], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = tab.name;
-  a.click();
+  a.href = url; a.download = tab.name; a.click();
   URL.revokeObjectURL(url);
-  
   tab.savedContent = tab.content;
   tab.modified = false;
   renderTabs();
-  
-  showToast(`Guardado: ${tab.name}`, 'ok');
+  showToast(`Descargado: ${tab.name}`, 'ok');
 }
 
 /* ════════════════════════════════════════════
-   API - PROJECTS
+   API — PROJECTS + FILES
 ════════════════════════════════════════════════ */
 async function checkAPIConnection() {
-  const dot = document.getElementById('connDot');
+  const dot   = document.getElementById('connDot');
   const label = document.getElementById('connLabel');
   const apiDot = document.getElementById('apiDot');
   try {
-    const res = await fetch(`${getAPIBase()}/api/health`, {signal: AbortSignal.timeout(3000)});
+    const res = await authFetch(`${getAPIBase()}/api/health`, { signal: AbortSignal.timeout(4000) });
     if (res.ok) {
-      dot.className = 'conn-dot online';
-      label.textContent = 'API ONLINE';
-      apiDot.style.color = 'var(--gr)';
+      if (dot) dot.className = 'conn-dot online';
+      if (label) label.textContent = 'API ONLINE';
+      if (apiDot) apiDot.style.color = 'var(--gr)';
       return true;
     }
   } catch(_) {}
-  dot.className = 'conn-dot error';
-  label.textContent = 'SIN CONEXIÓN';
-  apiDot.style.color = 'var(--re)';
+  if (dot) dot.className = 'conn-dot error';
+  if (label) label.textContent = 'SIN CONEXIÓN';
+  if (apiDot) apiDot.style.color = 'var(--re)';
   return false;
 }
 
 async function loadProjects() {
   try {
-    const res = await fetch(`${getAPIBase()}/api/projects`);
+    const res = await authFetch(`${getAPIBase()}/api/projects`);
     if (!res.ok) return;
     const data = await res.json();
     projects = data.projects || [];
@@ -1200,6 +1010,7 @@ async function loadProjects() {
 
 function renderProjectSelect() {
   const sel = document.getElementById('proj-select');
+  if (!sel) return;
   const prev = sel.value;
   sel.innerHTML = '<option value="">── Seleccionar proyecto ──</option>';
   projects.forEach(p => {
@@ -1208,13 +1019,13 @@ function renderProjectSelect() {
     opt.textContent = `${p.name} [${p.category || 'GENERAL'}]`;
     sel.appendChild(opt);
   });
-  if (prev) sel.value = prev;
+  if (prev && projects.find(p => p.id === prev)) sel.value = prev;
 }
 
 function onProjectChange() {
   const pid = document.getElementById('proj-select').value;
   if (!pid) {
-    activeProject = null; ideActiveProject = null;
+    activeProject = null;
     document.getElementById('pi-files').style.display = 'none';
     document.getElementById('pi-size').style.display = 'none';
     document.getElementById('fdList').innerHTML = '<div class="fd-empty">Selecciona un proyecto</div>';
@@ -1223,20 +1034,19 @@ function onProjectChange() {
   activeProject = projects.find(p => p.id === pid) || null;
   if (activeProject) {
     document.getElementById('pi-files').style.display = 'flex';
-    document.getElementById('pi-size').style.display = 'flex';
-    document.getElementById('pi-fc').textContent = ideActiveProject.file_count || 0;
-    document.getElementById('pi-sz').textContent = ideActiveProject.total_size || '0B';
-    
+    document.getElementById('pi-size').style.display  = 'flex';
+    setEl('pi-fc', activeProject.file_count || 0);
+    setEl('pi-sz', activeProject.total_size || '0 B');
     loadProjectFiles(pid);
     showToast(`Proyecto: ${activeProject.name}`, 'info');
   }
 }
 
-// Extensiones editables en el IDE
+// Editable file extensions
 const IDE_EDITABLE_EXTS = new Set([
   '.py','.js','.ts','.jsx','.tsx','.mjs','.cjs',
   '.html','.htm','.css','.scss','.sass','.less',
-  '.txt','.md','.markdown','.json','.jsonc','.json5',
+  '.txt','.md','.markdown','.json','.jsonc',
   '.sh','.bash','.zsh','.fish','.ps1','.bat','.cmd',
   '.yaml','.yml','.toml','.ini','.cfg','.conf','.env',
   '.xml','.svg','.log','.csv','.tsv',
@@ -1246,14 +1056,12 @@ const IDE_EDITABLE_EXTS = new Set([
   '.dockerfile','.gitignore','.editorconfig','.htaccess'
 ]);
 
-const IDE_BINARY_TYPES = new Set(['video','image','audio']);
-
 function isEditableFile(f) {
-  const ext = (f.ext || '').toLowerCase();
+  const ext  = (f.ext || '').toLowerCase();
   const name = (f.name || '').toLowerCase();
-  if (IDE_BINARY_TYPES.has(f.type)) return false;
+  if (['video','image','audio'].includes(f.type)) return false;
   if (IDE_EDITABLE_EXTS.has(ext)) return true;
-  if (!ext && IDE_EDITABLE_EXTS.has(name)) return true; // Dockerfile, Makefile
+  if (!ext && IDE_EDITABLE_EXTS.has(name)) return true;
   return false;
 }
 
@@ -1273,10 +1081,10 @@ async function loadProjectFiles(pid) {
   const list = document.getElementById('fdList');
   list.innerHTML = '<div class="fd-empty"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
   try {
-    const res = await fetch(`${getAPIBase()}/api/projects/${pid}/files`);
+    const res = await authFetch(`${getAPIBase()}/api/projects/${pid}/files`);
     if (!res.ok) throw new Error();
-    const data = await res.json();
-    const all = data.files || [];
+    const data  = await res.json();
+    const all   = data.files || [];
     const files = all.filter(f => isEditableFile(f));
 
     if (!files.length) {
@@ -1285,63 +1093,68 @@ async function loadProjectFiles(pid) {
         : '<div class="fd-empty">Sin archivos en el proyecto</div>';
       return;
     }
-
     list.innerHTML = files.map(f => `
-      <div class="fd-item" onclick="openFileFromAPI('${pid}','${f.path}','${f.name}','${f.ext}')">
+      <div class="fd-item" onclick="openFileFromAPI('${pid}','${escH(f.path)}','${escH(f.name)}','${f.ext||''}')">
         <i class="${fileIcon(f)}" style="color:var(--c)"></i>
-        <span class="fd-item-name">${f.name}</span>
+        <span class="fd-item-name">${escH(f.name)}</span>
         <span class="fd-item-meta">${f.size_human}</span>
-      </div>
-    `).join('');
+      </div>`).join('');
   } catch(_) {
-    list.innerHTML = '<div class="fd-empty" style="color:var(--re)">Error al cargar</div>';
+    list.innerHTML = '<div class="fd-empty" style="color:var(--re)">Error al cargar archivos</div>';
   }
 }
 
 async function openFileFromAPI(pid, path, name, ext) {
   try {
-    const res = await fetch(`${getAPIBase()}/projects/${pid}/files/${path}`);
-    if (!res.ok) throw new Error();
+    // Fetch file content from R2 via API proxy (auth required)
+    const res = await authFetch(`${getAPIBase()}/api/projects/${pid}/files/${path}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
-    
+
     const extMap = {
       py:'python', js:'javascript', ts:'javascript', jsx:'javascript', tsx:'javascript',
+      mjs:'javascript', cjs:'javascript',
       html:'html', htm:'html', css:'css', scss:'css',
-      json:'other', md:'other', sh:'other', bash:'other',
-      yaml:'other', yml:'other', xml:'other', sql:'other',
-      go:'other', rs:'other', java:'other', c:'other', cpp:'other',
-      rb:'other', php:'other', dockerfile:'dockerfile'
+      json:'other', jsonc:'other', md:'other', markdown:'other',
+      sh:'other', bash:'other', zsh:'other', yaml:'other', yml:'other',
+      xml:'other', svg:'other', toml:'other', ini:'other', cfg:'other',
+      sql:'other', go:'other', rs:'other', java:'other', c:'other', cpp:'other',
+      rb:'other', php:'other', dockerfile:'dockerfile', tf:'other', kt:'other', cs:'other'
     };
     const cleanExt = ext.replace('.','').toLowerCase();
-    const lang = extMap[cleanExt] || 'other';
+    const lang     = extMap[cleanExt] || 'other';
 
-    // Si ya está abierto en otra pestaña, activarla
-    const existingTab = tabs.find(t => t.fileInfo && t.fileInfo.path === path && t.fileInfo.project_id === pid);
+    // If already open, just activate
+    const existingTab = tabs.find(t =>
+      t.fileInfo && t.fileInfo.path === path && t.fileInfo.project_id === pid);
     if (existingTab) {
       activeTabId = existingTab.id;
-      renderTabs();
-      renderEditor();
+      renderTabs(); renderEditor();
       showToast(`Ya abierto: ${name}`, 'info');
       document.getElementById('fileDropdown').classList.remove('open');
       return;
     }
 
-    // Cerrar tab de bienvenida si no fue modificado
+    // Replace welcome tab if unmodified
     const welcomeIdx = tabs.findIndex(t => t._isWelcome && !t.modified);
-    if (welcomeIdx !== -1) {
-      tabs.splice(welcomeIdx, 1);
-    }
+    if (welcomeIdx !== -1) tabs.splice(welcomeIdx, 1);
 
-    const newTab = createTab(name, lang, text, {path, project_id: pid});
+    const newTab = createTab(name, lang, text, { path, project_id: pid });
     newTab.savedContent = text;
     activeTabId = newTab.id;
     renderTabs();
     renderEditor();
     showToast(`📂 ${name}`, 'ok');
-    
     document.getElementById('fileDropdown').classList.remove('open');
+
+    // Update project selector to match opened project
+    const sel = document.getElementById('proj-select');
+    if (sel && sel.value !== pid) {
+      sel.value = pid;
+      onProjectChange();
+    }
   } catch(err) {
-    showToast(`Error al abrir: ${name}`, 'err');
+    showToast(`Error al abrir: ${name} (${err.message})`, 'err');
   }
 }
 
@@ -1352,101 +1165,74 @@ function toggleFileDropdown() {
   const dd = document.getElementById('fileDropdown');
   dd.classList.toggle('open');
   if (dd.classList.contains('open') && activeProject) {
-    loadProjectFiles(activeProject.id);  // uses local activeProject
+    loadProjectFiles(activeProject.id);
   }
 }
 
 function showToast(msg, type = 'info') {
   const ct = document.getElementById('toast-ct');
+  if (!ct) return;
   const t = document.createElement('div');
-  const icons = {ok:'fa-circle-check', err:'fa-circle-exclamation', info:'fa-circle-info'};
+  const icons = { ok:'fa-circle-check', err:'fa-circle-exclamation', info:'fa-circle-info' };
   t.className = `toast ${type}`;
-  t.innerHTML = `<i class="fas ${icons[type]}"></i><span>${msg}</span>`;
+  t.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${msg}</span>`;
   ct.appendChild(t);
   setTimeout(() => t.remove(), 3000);
 }
+
+function escH(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function setEl(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
 
 /* ════════════════════════════════════════════
    KEYBOARD SHORTCUTS
 ════════════════════════════════════════════════ */
 function handleGlobalKeydown(e) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault();
-    saveFile();
-  }
-  
-  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-    e.preventDefault();
-    newFile();
-  }
-  
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveFile(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); newFile(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
     e.preventDefault();
     const tab = getActiveTab();
-    if (tab) {
-      closeTab(new Event('click'), tab.id);
-    }
+    if (tab) closeTab(new Event('click'), tab.id);
   }
-  
   if ((e.ctrlKey || e.metaKey) && e.key === 'Tab') {
     e.preventDefault();
-    const currentIndex = tabs.findIndex(t => t.id === activeTabId);
-    const nextIndex = (currentIndex + 1) % tabs.length;
-    if (tabs[nextIndex]) {
-      switchToTab(tabs[nextIndex].id);
-    }
+    const cur = tabs.findIndex(t => t.id === activeTabId);
+    const next = (cur + 1) % tabs.length;
+    if (tabs[next]) switchToTab(tabs[next].id);
   }
-  
   if (e.key === 'F9') {
     e.preventDefault();
     const tab = getActiveTab();
-    if (tab) {
-      toggleBreakpoint(tab.currentLine);
-    }
+    if (tab) toggleBreakpoint(tab.currentLine);
   }
 }
 
 /* ════════════════════════════════════════════
-   POSTMESSAGE BRIDGE — receives commands from Bitácora parent
+   POSTMESSAGE BRIDGE — from Bitácora parent
 ════════════════════════════════════════════════ */
 window.addEventListener('message', async (event) => {
   const msg = event.data;
   if (!msg || !msg.type) return;
 
   if (msg.type === 'SYNC_PROJECTS') {
-    if (msg.apiUrl) window._API_BASE_OVERRIDE = msg.apiUrl.replace('/api','');
+    if (msg.apiUrl) window._API_BASE_OVERRIDE = msg.apiUrl.replace('/api', '');
+    if (msg.token)  { try { sessionStorage.setItem('aetheryon_token', msg.token); } catch(_) {} }
     projects = msg.projects || [];
-    const sel = document.getElementById('proj-select');
-    const prevVal = sel ? sel.value : '';
     renderProjectSelect();
-    // Restore previous selection if still valid
-    if (prevVal && sel) {
-      sel.value = prevVal;
-      if (!sel.value) sel.value = '';  // clear if project was deleted
-    }
   }
 
   if (msg.type === 'OPEN_FILE') {
-    const { projId, file: f, apiUrl } = msg;
-    if (apiUrl) window._API_BASE_OVERRIDE = apiUrl.replace('/api','');
-    // Asegurar que el proyecto esté en la lista del selector
-    if (!projects.find(p => p.id === projId)) {
-      await loadProjects();
-    }
+    const { projId, file: f, apiUrl, token } = msg;
+    if (apiUrl)  window._API_BASE_OVERRIDE = apiUrl.replace('/api', '');
+    if (token)   { try { sessionStorage.setItem('aetheryon_token', token); } catch(_) {} }
+    if (!projects.find(p => p.id === projId)) await loadProjects();
     const sel = document.getElementById('proj-select');
-    if (sel) {
-      sel.value = projId;
-      onProjectChange();
-    }
-    // Abrir el archivo directamente (reemplaza el tab de bienvenida si está intacto)
-    await openFileFromAPI(projId, f.path, f.name, f.ext);
+    if (sel) { sel.value = projId; onProjectChange(); }
+    await openFileFromAPI(projId, f.path, f.name, f.ext || '');
   }
 });
-
-// Dynamic API_BASE getter — override > same origin > fallback
-function getAPIBase() {
-  return window._API_BASE_OVERRIDE || window.location.origin;
-}
 
 </script>
 </body>
