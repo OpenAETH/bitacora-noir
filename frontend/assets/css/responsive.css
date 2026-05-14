@@ -174,7 +174,7 @@ html.is-mobile .app {
     height: 100dvh;
     transform: translateX(-100%);
     transition: transform .25s ease;
-    z-index: 200;
+    z-index: 851;
     box-shadow: 4px 0 20px rgba(0, 0, 0, .6);
     background: rgba(5,10,20,0.96);
     backdrop-filter: none;
@@ -183,12 +183,14 @@ html.is-mobile .app {
   }
   aside.open { transform: translateX(0); }
 
-  /* Overlay independiente: fondo oscuro, blur suave, SIN doble-blur */
+  /* Overlay independiente: fondo oscuro, blur suave, SIN doble-blur.
+     z-index > 700 para cubrir el botón flotante de AI */
   .sidebar-overlay {
     display: block;
     opacity: 0;
     pointer-events: none;
     transition: opacity .25s ease;
+    z-index: 850;
     background: rgba(0,0,0,0.65);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
