@@ -7,6 +7,7 @@
 /* ── Safe areas (notch/home indicator) + dynamic viewport ──────────────── */
 @supports (height: 100dvh) {
   html, body { height: 100dvh; }
+  .app, #app { height: 100dvh; }
 }
 
 @supports (padding: env(safe-area-inset-top)) {
@@ -163,27 +164,33 @@ html.is-mobile .app {
     height: 100dvh;
   }
 
-  /* Sidebar: drawer overlay */
+  /* Sidebar: drawer overlay — fondo sólido, SIN backdrop-filter (evita bug Android Chrome) */
   aside {
     position: fixed;
     top: 0;
     left: 0;
-    width: 80vw;
-    max-width: 280px;
+    width: min(280px, 82vw);
     height: 100dvh;
     transform: translateX(-100%);
     transition: transform .25s ease;
     z-index: 200;
     box-shadow: 4px 0 20px rgba(0, 0, 0, .6);
+    background: rgba(5,10,20,0.96);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-right: 1px solid rgba(0,245,255,.16);
   }
   aside.open { transform: translateX(0); }
 
-  /* Sidebar overlay: con fade en lugar de display toggle */
+  /* Overlay independiente: fondo oscuro, blur suave, SIN doble-blur */
   .sidebar-overlay {
     display: block;
     opacity: 0;
     pointer-events: none;
     transition: opacity .25s ease;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
   }
   .sidebar-overlay.open {
     opacity: 1;
