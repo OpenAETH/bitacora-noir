@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    Bitácora Noir · responsive.css — Mobile-first optimizations
-   Breakpoints: ≤380 (xs), ≤640 (mobile), 641-900 (tablet), 901-1100 (sm desktop)
+   Breakpoints: ≤480 (xs), ≤768 (mobile), 769-900 (tablet), 901-1100 (sm desktop)
    Loads AFTER the inline <style> to override.
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -139,8 +139,8 @@ html.is-mobile .app {
   .fgrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }
 
-/* Tablet — 641-900 */
-@media (max-width: 900px) and (min-width: 641px) {
+/* Tablet — 769-900 */
+@media (max-width: 900px) and (min-width: 769px) {
   :root { --sidebar-w: 200px; }
   .cfg-wrap { grid-template-columns: 1fr; }
   .rec-wrap { grid-template-columns: 1fr; }
@@ -154,14 +154,15 @@ html.is-mobile .app {
   aside { width: 200px; }
 }
 
-/* ── Mobile — ≤640 ─────────────────────────────────────────────────────── */
-@media (max-width: 640px) {
+/* ── Mobile — ≤768 ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
   :root { --sidebar-w: 0px; --header-h: 56px; }
 
   .app {
     grid-template-columns: 1fr;
     grid-template-rows: var(--header-h) 1fr var(--footer-h);
     height: 100dvh;
+    overflow-x: hidden;
   }
 
   /* Sidebar: drawer overlay — fondo sólido, SIN backdrop-filter (evita bug Android Chrome) */
@@ -199,9 +200,16 @@ html.is-mobile .app {
 
   .ham-btn { display: flex !important; }
 
-  /* Header compacto */
+  /* Header: dos filas en mobile */
   .logo .lver { display: none; }
-  .proj-pill { min-width: 0; max-width: 130px; padding: 4px 8px; }
+  .logo { min-width: 0; flex-shrink: 1; }
+  .proj-pill {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: none;
+    min-width: 0;
+    padding: 4px 8px;
+  }
   .hst { display: none; }
   .hbtn:not(.ac):not(#hdrRecBtn) { display: none; }
   .hbtn-icon { display: inline; }
@@ -211,19 +219,21 @@ html.is-mobile .app {
   }
   .hbtn.ac { padding: 6px 14px; }
   header {
-    padding: 0 10px;
+    flex-wrap: wrap;
+    padding: 6px 10px;
     gap: 6px;
     min-height: var(--header-h);
     height: auto;
   }
   header > div[style*="margin-left:auto"] {
+    order: 2;
     gap: 4px !important;
   }
 
   /* Tabs: touch-friendly */
   .tabbar .tb {
     padding: 0 10px;
-    font-size: 8px;
+    font-size: 9px;
     letter-spacing: .08em;
     min-height: 44px;
   }
@@ -232,7 +242,7 @@ html.is-mobile .app {
   /* Panels */
   .panels .panel { padding: 12px; }
 
-  /* Stats */
+  /* Stats: 2 columnas */
   .stats4 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .sc-val { font-size: 18px; }
 
@@ -240,8 +250,8 @@ html.is-mobile .app {
   .upzone { padding: 16px; }
   .upzone-ttl { font-size: 8px; }
 
-  /* File grid */
-  .fgrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  /* File grid: flexible */
+  .fgrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
 
   /* Projects */
   .proj-wrap { grid-template-columns: 1fr; height: auto; }
@@ -320,23 +330,26 @@ html.is-mobile .app {
   }
 }
 
-/* ── Mobile XS — ≤380 ────────────────────────────────────────────────── */
-@media (max-width: 380px) {
-  .stats4 { grid-template-columns: 1fr 1fr; }
-  .fgrid { grid-template-columns: 1fr 1fr; }
-  .proj-pill { max-width: 80px; }
-  header { gap: 4px; padding: 0 6px; }
+/* ── Mobile Small — ≤480 ────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .stats4 { grid-template-columns: 1fr; gap: 6px; }
+  .fgrid { grid-template-columns: 1fr; gap: 6px; }
+  .proj-pill { padding: 4px 6px; }
+  header { gap: 4px; padding: 4px 8px; }
   .login-box { padding: 20px 16px; }
   .modal { padding: 14px; }
   .fc-thumb { height: 72px; }
+  .panels .panel { padding: 8px; }
+  .card { padding: 10px; }
+  .card-sm { padding: 8px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    IDE12 — RESPONSIVE
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Tablet — 641-900 */
-@media (max-width: 900px) and (min-width: 641px) {
+/* Tablet — 769-900 */
+@media (max-width: 900px) and (min-width: 769px) {
   #app { grid-template-rows: 48px 32px 36px 1fr 22px; }
   :root { --toolbar-h: 48px; --projectbar-h: 32px; --gutter-width: 48px; }
   .lang-selector .lbtn span { display: none; }
@@ -344,14 +357,14 @@ html.is-mobile .app {
   .file-stats { gap: 4px; }
 }
 
-/* Mobile — ≤640 */
-@media (max-width: 640px) {
+/* Mobile — ≤768 */
+@media (max-width: 768px) {
   #app {
-    grid-template-rows: 52px 36px 36px 1fr 22px;
+    grid-template-rows: 48px 36px 36px 1fr 22px;
     height: 100dvh;
   }
   :root {
-    --toolbar-h: 52px;
+    --toolbar-h: 48px;
     --projectbar-h: 36px;
     --gutter-width: 42px;
     --lh: 22px;
@@ -361,39 +374,39 @@ html.is-mobile .app {
   #toolbar {
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 0 10px;
-    gap: 6px;
+    padding: 0 8px;
+    gap: 4px;
     -webkit-overflow-scrolling: touch;
   }
   #toolbar::-webkit-scrollbar { height: 0; display: none; }
 
   .tbtn {
     font-size: 10px;
-    padding: 8px 12px;
+    padding: 8px 10px;
     min-height: 44px;
   }
   .lbtn {
     font-size: 10px;
-    padding: 6px 10px;
+    padding: 6px 8px;
     min-height: 40px;
   }
   .lbtn span { display: none; }
 
-  .brand { padding-right: 8px; }
+  .brand { padding-right: 6px; }
   .brand-logo { font-size: 11px; letter-spacing: .12em; }
   .brand-sub { display: none; }
   .file-stats { display: none; }
 
   /* Project bar */
-  #project-bar { padding: 0 10px; gap: 6px; }
+  #project-bar { padding: 0 8px; gap: 4px; }
   .pb-label { display: none; }
   #proj-select { font-size: 11px; flex: 1; max-width: none; padding: 8px 10px; min-height: 40px; }
   .pb-conn span:not(.conn-dot) { display: none; }
 
   /* Tabbar */
-  #tabbar { padding: 0 6px; }
+  #tabbar { padding: 0 4px; }
   .tab {
-    padding: 0 12px;
+    padding: 0 10px;
     height: 44px;
     font-size: 10px;
   }
@@ -426,9 +439,9 @@ html.is-mobile .app {
 
 .ide-back-btn { display: none; }
 
-/* Mobile XS — ≤380 */
-@media (max-width: 380px) {
-  .tbtn { font-size: 9px; padding: 6px 10px; }
+/* Mobile Small — ≤480 */
+@media (max-width: 480px) {
+  .tbtn { font-size: 9px; padding: 6px 8px; }
   .brand-logo { font-size: 10px; }
 }
 
