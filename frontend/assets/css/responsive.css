@@ -159,6 +159,7 @@ html.is-mobile .app {
   :root { --sidebar-w: 0px; --header-h: 56px; }
 
   .app {
+    position: static;
     grid-template-columns: 1fr;
     grid-template-rows: var(--header-h) 1fr var(--footer-h);
     height: 100dvh;
