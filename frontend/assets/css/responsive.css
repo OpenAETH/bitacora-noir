@@ -1,0 +1,239 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Bitácora Noir · responsive.css
+   Breakpoints: ≤380 (xs), ≤640 (mobile), 641-900 (tablet), 901-1100 (sm desktop)
+   Plus: safe-area-inset (notch), 100dvh, hover-only fallback for touch.
+   Carga DESPUÉS del <style> inline para sobrescribir; ambos HTML lo incluyen.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── globales: safe areas + dynamic viewport ─────────────────────────────── */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
+}
+
+@supports (padding: env(safe-area-inset-top)) {
+  header,
+  #toolbar {
+    padding-top: env(safe-area-inset-top);
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+  footer,
+  #statusbar {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+}
+
+/* En touch: minimum hit target = 40x40 para botones críticos */
+html.is-touch .ham-btn,
+html.is-touch .src-btn,
+html.is-touch .tbtn,
+html.is-touch .hbtn,
+html.is-touch .lbtn,
+html.is-touch .tab-add,
+html.is-touch .tab-close {
+  min-height: 40px;
+  min-width: 40px;
+}
+
+/* Touch: deshabilitar :hover transforms agresivos (causan stuck states) */
+@media (hover: none) {
+  .tbtn:hover, .hbtn:hover, .src-btn:hover, .lbtn:hover, .tab:hover {
+    background: inherit;
+    color: inherit;
+    border-color: inherit;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AETHERYON FRONTEND — breakpoints
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Tablet — 901-1100 */
+@media (max-width: 1100px) {
+  .stats4 { grid-template-columns: repeat(2, 1fr); }
+  .fgrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}
+
+/* Tablet — 641-900 (sidebar colapsable persistente) */
+@media (max-width: 900px) and (min-width: 641px) {
+  :root { --sidebar-w: 200px; }
+  .cfg-wrap { grid-template-columns: 1fr; }
+  .rec-wrap { grid-template-columns: 1fr; }
+  .rec-right { flex-direction: row; flex-wrap: wrap; overflow-y: visible; }
+  .rec-right > .card-sm,
+  .rec-right > .pos-grid { flex: 1; min-width: 200px; }
+  .fgrid2 { grid-template-columns: 1fr; }
+  .lname { font-size: 11px; letter-spacing: .14em; }
+  #clock { display: none; }
+  .proj-wrap { grid-template-columns: 1fr; grid-template-rows: 220px 1fr; }
+  /* Tablet: el sidebar puede mantenerse, pero más angosto */
+  aside { width: 200px; }
+}
+
+/* Mobile — ≤640 */
+@media (max-width: 640px) {
+  :root { --sidebar-w: 0px; --header-h: 56px; }
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--header-h) 1fr var(--footer-h);
+    height: 100dvh;
+  }
+  /* Sidebar overlay desde la izquierda */
+  aside {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 80vw;
+    max-width: 280px;
+    height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    z-index: 200;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, .6);
+  }
+  aside.open { transform: translateX(0); }
+  /* Backdrop usa #sidebarOverlay (ya cableado en el HTML) */
+  .ham-btn { display: flex !important; }
+
+  /* Header compacto */
+  .logo .lver { display: none; }
+  .proj-pill { min-width: 0; max-width: 130px; padding: 4px 8px; }
+  .hst { display: none; }
+  .hbtn:not(.ac):not(#hdrRecBtn) { display: none; }
+  .hbtn-icon { display: inline; }
+  header { padding: 0 10px; gap: 8px; }
+
+  /* Panels */
+  .panels .panel { padding: 12px; }
+  .stats4 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .sc-val { font-size: 18px; }
+  .upzone { padding: 16px; }
+  .upzone-ttl { font-size: 8px; }
+  .fgrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .tabbar .tb { padding: 0 10px; font-size: 8px; letter-spacing: .08em; min-height: 44px; }
+  .tabbar .tb-label { display: none; }
+  .proj-wrap { grid-template-columns: 1fr; height: auto; }
+  .proj-col { max-height: 220px; }
+  .fb-body { max-height: 260px; }
+  .viewer-hdr { padding: 10px 14px; }
+  .viewer-title { font-size: 10px; }
+  .cfg-wrap { grid-template-columns: 1fr; }
+  .rec-wrap { grid-template-columns: 1fr; height: auto; }
+  .preview-box { min-height: 220px; }
+  .ai-wrap { right: 10px; bottom: 36px; width: calc(100vw - 20px); }
+  .modal { padding: 16px; }
+  .modal-content,
+  .login-box { max-width: calc(100vw - 32px); }
+  .shdr { flex-direction: column; align-items: flex-start; }
+  footer { font-size: 7px; letter-spacing: .1em; }
+}
+
+/* Mobile xs — ≤380 */
+@media (max-width: 380px) {
+  .stats4 { grid-template-columns: 1fr 1fr; }
+  .fgrid { grid-template-columns: 1fr 1fr; }
+  .proj-pill { max-width: 100px; }
+  header { gap: 6px; padding: 0 8px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   IDE12 — breakpoints (antes no tenía ninguno)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Tablet — 641-900 */
+@media (max-width: 900px) and (min-width: 641px) {
+  #app { grid-template-rows: 48px 32px 36px 1fr 22px; }
+  :root { --toolbar-h: 48px; --projectbar-h: 32px; --gutter-width: 48px; }
+  .lang-selector .lbtn span { display: none; }
+  .stat-badge { padding: 3px 6px; }
+  .file-stats { gap: 4px; }
+}
+
+/* Mobile — ≤640 */
+@media (max-width: 640px) {
+  #app {
+    grid-template-rows: 52px 36px 36px 1fr 22px;
+    height: 100dvh;
+  }
+  :root {
+    --toolbar-h: 52px;
+    --projectbar-h: 36px;
+    --gutter-width: 42px;
+    --lh: 22px;
+  }
+  /* Toolbar: scroll horizontal en lugar de wrap */
+  #toolbar {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 10px;
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  #toolbar::-webkit-scrollbar { height: 0; display: none; }
+
+  /* Botones: tamaños legibles en mobile */
+  .tbtn {
+    font-size: 10px;
+    padding: 8px 12px;
+    min-height: 36px;
+  }
+  .lbtn {
+    font-size: 10px;
+    padding: 6px 10px;
+    min-height: 32px;
+  }
+  .lbtn span { display: none; }
+
+  .brand { padding-right: 8px; }
+  .brand-logo { font-size: 11px; letter-spacing: .12em; }
+  .brand-sub { display: none; }
+
+  .file-stats { display: none; }
+
+  /* Project bar */
+  #project-bar { padding: 0 10px; gap: 6px; }
+  .pb-label { display: none; }
+  #proj-select { font-size: 11px; flex: 1; max-width: none; padding: 6px 8px; }
+  .pb-conn span:not(.conn-dot) { display: none; }
+
+  /* Tabbar: pestañas más cliqueables */
+  #tabbar { padding: 0 6px; }
+  .tab {
+    padding: 0 12px;
+    height: 36px;
+    font-size: 10px;
+  }
+  .tab-close { opacity: 1; }
+  .tab-add { width: 36px; height: 36px; }
+
+  /* Editor: keyboard friendly */
+  .line-numbers {
+    width: var(--gutter-width);
+    font-size: 11px;
+  }
+  #editor-container { font-size: 13px; }
+
+  /* Botón "← Volver" insertado por JS, sólo mobile */
+  .ide-back-btn { display: inline-flex !important; }
+}
+
+/* IDE: por defecto el botón volver está oculto (sólo se muestra en mobile) */
+.ide-back-btn { display: none; }
+
+/* Mobile xs — ≤380 */
+@media (max-width: 380px) {
+  .tbtn { font-size: 9px; padding: 6px 10px; }
+  .brand-logo { font-size: 10px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Capacitor: extra padding-top porque la status bar nativa pinta encima
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.is-capacitor body { padding-top: env(safe-area-inset-top); }
+html.is-capacitor header,
+html.is-capacitor #toolbar { padding-top: 6px; }
+
+/* PWA standalone: ocultar address-bar specific spacing */
+html.is-pwa { background: var(--bg, #020509); }

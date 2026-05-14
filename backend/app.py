@@ -7,6 +7,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Dep
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
 import os, uuid, base64, re, unicodedata, asyncio, io
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -202,6 +203,10 @@ async def startup_event():
         pass
 
 # ─── FRONTEND ─────────────────────────────────────────────────────────────────
+ASSETS_DIR = FRONTEND_DIR / "assets"
+if ASSETS_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+
 def serve_html(filename: str) -> HTMLResponse:
     fp = FRONTEND_DIR / filename
     if not fp.exists():
