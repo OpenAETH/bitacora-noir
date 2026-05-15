@@ -96,9 +96,10 @@ function openInIDE(projId, f) {
     ...(token ? { token } : {})
   });
   const ideUrl = (window.IDE_URL || '/ide') + '/?' + params.toString();
-  // En mobile/PWA: misma pestaña, así historial.back() trae al usuario de vuelta.
+  // En mobile/PWA/Capacitor: misma pestaña, así history.back() trae al usuario de vuelta.
   // En desktop: nueva pestaña, como siempre.
-  if (isMobileViewport || matchMedia('(max-width: 640px)').matches) {
+  const inCapacitor = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (inCapacitor || isMobileViewport || matchMedia('(max-width: 640px)').matches) {
     location.href = ideUrl;
   } else {
     window.open(ideUrl, '_blank');

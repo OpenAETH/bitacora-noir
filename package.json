@@ -1,0 +1,16 @@
+{
+  "name": "bitacora-noir",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capacitor wrapper for Bitácora Noir (hosted webview Android APK).",
+  "devDependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "typescript": "^6.0.3"
+  },
+  "scripts": {
+    "cap:sync": "cap sync android",
+    "cap:open": "cap open android"
+  }
+}
