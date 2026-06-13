@@ -7,7 +7,6 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Dep
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.staticfiles import StaticFiles
 import os, uuid, base64, re, unicodedata, asyncio, io
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -203,10 +202,6 @@ async def startup_event():
         pass
 
 # ─── FRONTEND ─────────────────────────────────────────────────────────────────
-ASSETS_DIR = FRONTEND_DIR / "assets"
-if ASSETS_DIR.is_dir():
-    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
-
 def serve_html(filename: str) -> HTMLResponse:
     fp = FRONTEND_DIR / filename
     if not fp.exists():
@@ -450,22 +445,34 @@ async def save_recording(pid: str, body: RecordingPayload, auth=Depends(verify_t
         raise HTTPException(404, "Not found")
     if not (body.dataUrl.startswith("data:video") or body.dataUrl.startswith("data:audio")):
         raise HTTPException(400, "Invalid data")
-    _, encoded = body.dataUrl.split(",", 1)
+    # El mime real lo declara el dataUrl ("data:video/mp4;base64,..." o webm,
+    # y audio/* si la grabación es sólo micrófono). No asumir webm: MediaRecorder
+    # emite mp4 en iOS/algunos webviews, y guardar mp4 etiquetado como webm
+    # produce un archivo que ningún reproductor abre.
+    header, encoded = body.dataUrl.split(",", 1)
     raw = base64.b64decode(encoded)
+    mime = header[len("data:"):].split(";", 1)[0] or "video/webm"
+    REC_EXT = {
+        "video/webm": ".webm", "video/mp4": ".mp4", "video/x-matroska": ".mkv",
+        "audio/webm": ".webm", "audio/mp4": ".m4a", "audio/ogg": ".ogg",
+        "audio/mpeg": ".mp3", "audio/wav": ".wav",
+    }
+    ext = REC_EXT.get(mime, ".webm")
+    ftype = "audio" if mime.startswith("audio") else "video"
     ts  = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     lbl = safe_filename(body.label)
-    filename = f"{lbl}_{ts}.webm"
+    filename = f"{lbl}_{ts}{ext}"
     key = r2_key(pid, "recordings", filename)
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, lambda: r2.put_object(
         Bucket=R2_BUCKET, Key=key, Body=raw,
-        ContentType="video/webm", ContentLength=len(raw),
+        ContentType=mime, ContentLength=len(raw),
     ))
     await db.projects.update_one({"id": pid}, {"$set": {"updated": datetime.utcnow().isoformat()}})
     rel = key[len(f"projects/{pid}/"):]
     return {"file": {
         "id": str(uuid.uuid4()), "name": filename, "path": rel, "r2_key": key,
-        "type": "video", "ext": ".webm",
+        "type": ftype, "ext": ext,
         "size": len(raw), "size_human": human_size(len(raw)),
         "created": datetime.utcnow().isoformat(),
         "url": f"/api/projects/{pid}/files/{rel}",
