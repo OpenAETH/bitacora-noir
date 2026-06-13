@@ -1,0 +1,457 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Bitácora Noir · responsive.css — Mobile-first optimizations
+   Breakpoints: ≤480 (xs), ≤768 (mobile), 769-900 (tablet), 901-1100 (sm desktop)
+   Loads AFTER the inline <style> to override.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Safe areas (notch/home indicator) + dynamic viewport ──────────────── */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
+  .app, #app { height: 100dvh; }
+}
+
+@supports (padding: env(safe-area-inset-top)) {
+  header,
+  #toolbar {
+    padding-top: env(safe-area-inset-top);
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+  footer,
+  #statusbar {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+  .ai-wrap {
+    bottom: calc(38px + env(safe-area-inset-bottom));
+  }
+  .toast {
+    top: calc(74px + env(safe-area-inset-top));
+  }
+}
+
+/* ── Touch: minimum hit target 44×44 (Apple HIG) ──────────────────────── */
+html.is-touch .ham-btn,
+html.is-touch .src-btn,
+html.is-touch .tbtn,
+html.is-touch .hbtn,
+html.is-touch .lbtn,
+html.is-touch .tab-add,
+html.is-touch .tab-close,
+html.is-touch .tab,
+html.is-touch .ni,
+html.is-touch .pos-btn,
+html.is-touch .fbt,
+html.is-touch .btn,
+html.is-touch .ss-btn,
+html.is-touch .rec-mb,
+html.is-touch .viewer-close,
+html.is-touch .mcl,
+html.is-touch .aisend,
+html.is-touch .aitgl,
+html.is-touch .fi-dl,
+html.is-touch .ibt,
+html.is-touch .tgl,
+html.is-touch .login-btn,
+html.is-touch .tab-add,
+html.is-touch .login-eye,
+html.is-touch .mcl {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* ── Touch: neutralizar hover para evitar stuck states ────────────────── */
+@media (hover: none) {
+  .tbtn:hover, .hbtn:hover, .src-btn:hover, .lbtn:hover,
+  .tab:hover, .btn:hover, .fc:hover, .scard:hover,
+  .ni:hover, .pos-btn:hover, .rec-mb:hover, .ss-btn:hover,
+  .fbt:hover, .pi-item:hover, .ritem:hover,
+  .fitem:hover, .viewer-dl:hover, .fc-acts {
+    background: inherit;
+    color: inherit;
+    border-color: inherit;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  /* Active states aún funcionan */
+  .ni.active, .tab.active, .src-btn.on, .pos-btn.active,
+  .fbt.active {
+    background: var(--cg);
+    color: var(--c);
+    border-color: var(--c);
+  }
+  .tbtn.primary:hover, .hbtn.ac:hover, .btn-p:hover {
+    background: var(--cd);
+    color: var(--bg);
+    box-shadow: 0 0 20px rgba(0,245,255,.4);
+  }
+}
+
+/* ── Touch: momentum scroll + ocultar scrollbars finas (inutilizables) ── */
+html.is-touch .panel,
+html.is-touch .nav-scroll,
+html.is-touch .plist,
+html.is-touch .proj-detail,
+html.is-touch .rec-right,
+html.is-touch .fb-body,
+html.is-touch .viewer-body,
+html.is-touch .view-text,
+html.is-touch .view-md,
+html.is-touch .view-json,
+html.is-touch #docTimeline,
+html.is-touch .aimsgs,
+html.is-touch .tl-group {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+html.is-touch .panel::-webkit-scrollbar,
+html.is-touch .nav-scroll::-webkit-scrollbar,
+html.is-touch .plist::-webkit-scrollbar,
+html.is-touch .proj-detail::-webkit-scrollbar,
+html.is-touch .rec-right::-webkit-scrollbar,
+html.is-touch .fb-body::-webkit-scrollbar,
+html.is-touch .viewer-body::-webkit-scrollbar,
+html.is-touch .view-text::-webkit-scrollbar,
+html.is-touch .view-md::-webkit-scrollbar,
+html.is-touch .view-json::-webkit-scrollbar,
+html.is-touch #docTimeline::-webkit-scrollbar,
+html.is-touch .aimsgs::-webkit-scrollbar,
+html.is-touch .tl-group::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* ── Prevenir pull-to-refresh / overscroll en mobile ──────────────────── */
+html.is-mobile body,
+html.is-mobile .app {
+  overscroll-behavior: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BREAKPOINTS — AETHERYON FRONTEND
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Tablet — 901-1100 */
+@media (max-width: 1100px) {
+  .stats4 { grid-template-columns: repeat(2, 1fr); }
+  .fgrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}
+
+/* Tablet — 769-900 */
+@media (max-width: 900px) and (min-width: 769px) {
+  :root { --sidebar-w: 200px; }
+  .cfg-wrap { grid-template-columns: 1fr; }
+  .rec-wrap { grid-template-columns: 1fr; }
+  .rec-right { flex-direction: row; flex-wrap: wrap; overflow-y: visible; }
+  .rec-right > .card-sm,
+  .rec-right > .pos-grid { flex: 1; min-width: 200px; }
+  .fgrid2 { grid-template-columns: 1fr; }
+  .lname { font-size: 11px; letter-spacing: .14em; }
+  #clock { display: none; }
+  .proj-wrap { grid-template-columns: 1fr; grid-template-rows: 220px 1fr; }
+  aside { width: 200px; }
+}
+
+/* ── Mobile — ≤768 ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  :root { --sidebar-w: 0px; --header-h: 56px; }
+
+  .app {
+    position: static;
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--header-h) 1fr var(--footer-h);
+    height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  /* Sidebar: fondo 100% opaco, SIN backdrop-filter (evita bug Android Chrome) */
+  aside {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: min(280px, 82vw);
+    height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    z-index: 851;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, .6);
+    background: #050a14;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-right: 1px solid rgba(0,245,255,.16);
+  }
+  aside.open { transform: translateX(0); }
+
+  /* Overlay: fondo oscuro sólido, SIN backdrop-filter (evita blur sobre botón AI y sidebar) */
+  .sidebar-overlay {
+    display: block;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease;
+    z-index: 850;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .sidebar-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .ham-btn { display: flex !important; }
+
+  /* Header: dos filas en mobile */
+  .logo .lver { display: none; }
+  .logo { min-width: 0; flex-shrink: 1; }
+  .proj-pill {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: none;
+    min-width: 0;
+    padding: 4px 8px;
+  }
+  .hst { display: none; }
+  .hbtn:not(.ac):not(#hdrRecBtn) { display: none; }
+  .hbtn-icon { display: inline; }
+  .hbtn {
+    min-height: 44px;
+    padding: 6px 12px;
+  }
+  .hbtn.ac { padding: 6px 14px; }
+  header {
+    flex-wrap: wrap;
+    padding: 6px 10px;
+    gap: 6px;
+    min-height: var(--header-h);
+    height: auto;
+  }
+  header > div[style*="margin-left:auto"] {
+    order: 2;
+    gap: 4px !important;
+  }
+
+  /* Tabs: touch-friendly */
+  .tabbar .tb {
+    padding: 0 10px;
+    font-size: 9px;
+    letter-spacing: .08em;
+    min-height: 44px;
+  }
+  .tabbar .tb-label { display: none; }
+
+  /* Panels */
+  .panels .panel { padding: 12px; }
+
+  /* Stats: 2 columnas */
+  .stats4 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .sc-val { font-size: 18px; }
+
+  /* Upload */
+  .upzone { padding: 16px; }
+  .upzone-ttl { font-size: 8px; }
+
+  /* File grid: flexible */
+  .fgrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+
+  /* Projects */
+  .proj-wrap { grid-template-columns: 1fr; height: auto; }
+  .proj-col { max-height: 220px; }
+  .fb-body { max-height: 260px; }
+
+  /* Viewer */
+  .viewer-hdr { padding: 8px 10px; gap: 6px; }
+  .viewer-title { font-size: 10px; }
+  .viewer-meta { display: none; }
+  .viewer-dl { padding: 6px 10px; font-size: 10px; }
+
+  /* Config */
+  .cfg-wrap { grid-template-columns: 1fr; }
+
+  /* Recording */
+  .rec-wrap { grid-template-columns: 1fr; height: auto; }
+  .preview-box { min-height: 200px; }
+  .rec-controls { padding: 10px; }
+  .rc-row { gap: 5px; }
+  .src-btn { min-width: 48px; padding: 8px 4px; }
+  .src-btn span { font-size: 6px; }
+  .rec-right { padding-bottom: env(safe-area-inset-bottom); }
+  .pos-grid { gap: 3px; }
+  .pos-btn { padding: 8px 2px; }
+  .rec-mb { padding: 12px; font-size: 11px; }
+  .ss-btn { padding: 10px; font-size: 9px; }
+
+  /* AI panel: full-width en mobile */
+  .ai-wrap {
+    right: 10px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    width: calc(100vw - 20px);
+    left: 10px;
+  }
+  .aichat { height: 50vh; max-height: 360px; }
+
+  /* Modal */
+  .modal {
+    padding: 16px;
+    margin: 0 8px;
+  }
+  .modal-content,
+  .login-box { max-width: calc(100vw - 32px); }
+  .mcl {
+    width: 44px;
+    height: 44px;
+    font-size: 16px;
+    top: 8px;
+    right: 8px;
+  }
+
+  /* Login: compacto */
+  .login-box {
+    padding: 24px 20px;
+    max-width: calc(100vw - 32px);
+  }
+  .login-title { font-size: 16px; }
+
+  /* General */
+  .shdr { flex-direction: column; align-items: flex-start; gap: 6px; }
+  footer { font-size: 7px; letter-spacing: .1em; }
+  .card { padding: 12px; }
+  .card-sm { padding: 10px; }
+  .fc-thumb { height: 90px; }
+
+  /* Toast: bottom en mobile */
+  .toast {
+    top: auto;
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    right: 10px;
+    left: 10px;
+    max-width: none;
+    padding: 12px 16px;
+    font-size: 11px;
+  }
+}
+
+/* ── Mobile Small — ≤480 ────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .stats4 { grid-template-columns: 1fr; gap: 6px; }
+  .fgrid { grid-template-columns: 1fr; gap: 6px; }
+  .proj-pill { padding: 4px 6px; }
+  header { gap: 4px; padding: 4px 8px; }
+  .login-box { padding: 20px 16px; }
+  .modal { padding: 14px; }
+  .fc-thumb { height: 72px; }
+  .panels .panel { padding: 8px; }
+  .card { padding: 10px; }
+  .card-sm { padding: 8px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   IDE12 — RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Tablet — 769-900 */
+@media (max-width: 900px) and (min-width: 769px) {
+  #app { grid-template-rows: 48px 32px 36px 1fr 22px; }
+  :root { --toolbar-h: 48px; --projectbar-h: 32px; --gutter-width: 48px; }
+  .lang-selector .lbtn span { display: none; }
+  .stat-badge { padding: 3px 6px; }
+  .file-stats { gap: 4px; }
+}
+
+/* Mobile — ≤768 */
+@media (max-width: 768px) {
+  #app {
+    grid-template-rows: 48px 36px 36px 1fr 22px;
+    height: 100dvh;
+  }
+  :root {
+    --toolbar-h: 48px;
+    --projectbar-h: 36px;
+    --gutter-width: 42px;
+    --lh: 22px;
+  }
+
+  /* Toolbar: scroll horizontal */
+  #toolbar {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 8px;
+    gap: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  #toolbar::-webkit-scrollbar { height: 0; display: none; }
+
+  .tbtn {
+    font-size: 10px;
+    padding: 8px 10px;
+    min-height: 44px;
+  }
+  .lbtn {
+    font-size: 10px;
+    padding: 6px 8px;
+    min-height: 40px;
+  }
+  .lbtn span { display: none; }
+
+  .brand { padding-right: 6px; }
+  .brand-logo { font-size: 11px; letter-spacing: .12em; }
+  .brand-sub { display: none; }
+  .file-stats { display: none; }
+
+  /* Project bar */
+  #project-bar { padding: 0 8px; gap: 4px; }
+  .pb-label { display: none; }
+  #proj-select { font-size: 11px; flex: 1; max-width: none; padding: 8px 10px; min-height: 40px; }
+  .pb-conn span:not(.conn-dot) { display: none; }
+
+  /* Tabbar */
+  #tabbar { padding: 0 4px; }
+  .tab {
+    padding: 0 10px;
+    height: 44px;
+    font-size: 10px;
+  }
+  .tab-close { opacity: 1; width: 36px; height: 36px; }
+  .tab-add { width: 44px; height: 44px; }
+
+  /* Editor */
+  .line-numbers {
+    width: var(--gutter-width);
+    font-size: 11px;
+  }
+  #editor-container { font-size: 13px; }
+
+  /* Back button */
+  .ide-back-btn { display: inline-flex !important; min-height: 44px; min-width: 44px; }
+
+  /* File dropdown: bottom sheet en mobile */
+  .file-dropdown {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-width: none;
+    max-height: 60vh;
+    border-bottom: none;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, .6);
+  }
+}
+
+.ide-back-btn { display: none; }
+
+/* Mobile Small — ≤480 */
+@media (max-width: 480px) {
+  .tbtn { font-size: 9px; padding: 6px 8px; }
+  .brand-logo { font-size: 10px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CAPACITOR / PWA
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.is-capacitor body { padding-top: env(safe-area-inset-top); }
+html.is-capacitor header,
+html.is-capacitor #toolbar { padding-top: 6px; }
+
+html.is-pwa { background: var(--bg, #020509); }

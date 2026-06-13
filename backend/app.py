@@ -7,6 +7,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Dep
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
 import os, uuid, base64, re, unicodedata, asyncio, io
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -200,6 +201,14 @@ async def startup_event():
         await db.projects.create_index("id", unique=True)
     except Exception:
         pass
+
+# ─── STATIC ASSETS ────────────────────────────────────────────────────────────
+# Sirve frontend/assets/* (los módulos ES: platform/core/auth/projects/...).
+# Sin este mount, /assets/js/*.js da 404, ningún módulo carga y las funciones
+# globales (doLogin, etc.) quedan indefinidas → el login no responde.
+ASSETS_DIR = FRONTEND_DIR / "assets"
+if ASSETS_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 
 # ─── FRONTEND ─────────────────────────────────────────────────────────────────
 def serve_html(filename: str) -> HTMLResponse:
@@ -449,6 +458,15 @@ async def save_recording(pid: str, body: RecordingPayload, auth=Depends(verify_t
     # y audio/* si la grabación es sólo micrófono). No asumir webm: MediaRecorder
     # emite mp4 en iOS/algunos webviews, y guardar mp4 etiquetado como webm
     # produce un archivo que ningún reproductor abre.
+
+    # OJO: el header puede contener comas dentro de los codecs
+    # (p.ej. data:video/webm;codecs="vp8, opus";base64,...) cuando la grabación
+    # combina video + audio. Partir por la primera "," rompería el base64, así
+    # que separamos por el marcador ";base64,".
+    if ";base64," in body.dataUrl:
+        header, encoded = body.dataUrl.split(";base64,", 1)
+    else:
+        header, encoded = body.dataUrl.split(",", 1)
     header, encoded = body.dataUrl.split(",", 1)
     raw = base64.b64decode(encoded)
     mime = header[len("data:"):].split(";", 1)[0] or "video/webm"
