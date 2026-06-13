@@ -80,15 +80,13 @@ async function toggleScreen() {
     return;
   }
   try {
-    // Pedimos resolución nativa alta y 30/60fps según calidad. El navegador
-    // entrega lo que la pantalla/pestaña permita (no upscalea).
+    // NO fijamos width/height: pedir un 'ideal' hace que Chrome downscalee la
+    // captura en origen (peor nitidez). Dejamos que capture a resolución nativa
+    // de la pantalla/pestaña y, si hace falta, el canvas reescala con calidad
+    // alta. Sólo pedimos cadencia de frames alta.
     const hd = cfg().hq;
     screenStream = await navigator.mediaDevices.getDisplayMedia({
-      video: {
-        width:  { ideal: hd ? 1920 : 1280 },
-        height: { ideal: hd ? 1080 : 720 },
-        frameRate: { ideal: hd ? 60 : 30, max: 60 },
-      },
+      video: { frameRate: { ideal: hd ? 60 : 30, max: 60 } },
       audio: true,
     });
     if (vid) { vid.srcObject = screenStream; vid.style.display = 'block'; }
@@ -219,7 +217,12 @@ function buildVideoTrack() {
   if (W > capW) { H = Math.round(H * capW / W); W = capW; }
   compCanvas = document.createElement('canvas');
   compCanvas.width = W; compCanvas.height = H;
-  const ctx = compCanvas.getContext('2d');
+  const ctx = compCanvas.getContext('2d', { alpha: false, desynchronized: true });
+  // CLAVE contra el "difuminado": por defecto el canvas escala con calidad 'low'.
+  // Al dibujar la pantalla nativa → canvas (downscale) y la webcam → PiP, eso
+  // lava los bordes. Forzamos interpolación de alta calidad.
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   const draw = () => {
     if (scr?.videoWidth) ctx.drawImage(scr, 0, 0, W, H);
     else { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); }
