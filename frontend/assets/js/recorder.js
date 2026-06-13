@@ -18,6 +18,12 @@ let recChunks = [];
 let recInterval = null;
 let recSeconds = 0;
 
+// Compositor (sólo se arma cuando hay 2+ fuentes; ver buildVideoTrack/buildAudioTrack)
+let canvasStream = null;     // MediaStream que produce el <canvas> compositor
+let rafId = null;            // id del requestAnimationFrame del loop de dibujo
+let audioCtx = null;         // AudioContext del mixer de audio
+let compCanvas = null;       // <canvas> offscreen compositor
+
 // Webcam position presets (PiP)
 const WC_STYLES = {
   top: 'top:10px;left:50%;transform:translateX(-50%);width:200px;height:112px',
@@ -144,6 +150,103 @@ function toggleSysAudio() {
   toast('Audio del sistema: se captura junto con pantalla', 'info');
 }
 
+// ── Compositor (canvas video + audio mixer) ─────────────────────────────────
+// Traduce el preset de posición (wcPos) a un rect proporcional sobre el canvas.
+// Devuelve {x,y,w,h} en píxeles del canvas (W×H).
+function pipRect(W, H) {
+  const m = Math.round(W * 0.015) + 6;        // margen ~1.5% del ancho
+  const land = { w: Math.round(W * 0.22), h: 0 };
+  land.h = Math.round(land.w * 9 / 16);        // PiP apaisado 16:9
+  const port = { w: Math.round(W * 0.12), h: 0 };
+  port.h = Math.round(port.w * 16 / 9);        // PiP vertical 9:16
+  const cx = Math.round((W - land.w) / 2);
+  switch (wcPos) {
+    case 'ct': return { x: 0, y: 0, w: W, h: H };                       // full
+    case 'top': return { x: cx, y: m, w: land.w, h: land.h };
+    case 'cb': return { x: cx, y: H - land.h - m, w: land.w, h: land.h };
+    case 'tl': return { x: m, y: m, w: land.w, h: land.h };
+    case 'tr': return { x: W - land.w - m, y: m, w: land.w, h: land.h };
+    case 'bl': return { x: m, y: H - land.h - m, w: land.w, h: land.h };
+    case 'vl': return { x: m, y: m, w: port.w, h: port.h };
+    case 'vr': return { x: W - port.w - m, y: m, w: port.w, h: port.h };
+    case 'br':
+    default:  return { x: W - land.w - m, y: H - land.h - m, w: land.w, h: land.h };
+  }
+}
+
+// Dibuja `vid` dentro de (dx,dy,dw,dh) con recorte tipo object-fit:cover.
+function drawCover(ctx, vid, dx, dy, dw, dh) {
+  const vw = vid.videoWidth, vh = vid.videoHeight;
+  if (!vw || !vh) return;
+  const scale = Math.max(dw / vw, dh / vh);
+  const sw = dw / scale, sh = dh / scale;
+  const sx = (vw - sw) / 2, sy = (vh - sh) / 2;
+  ctx.drawImage(vid, sx, sy, sw, sh, dx, dy, dw, dh);
+}
+
+// Devuelve el video track a grabar. null = sin video (solo audio).
+// 1 fuente → track directo (sin canvas). 2 fuentes (pantalla+webcam) → canvas PiP.
+function buildVideoTrack() {
+  const hasScreen = !!screenStream, hasWebcam = !!webcamStream;
+  if (!hasScreen && !hasWebcam) return null;
+  if (hasScreen !== hasWebcam) {
+    // exactamente una fuente de video
+    const s = hasScreen ? screenStream : webcamStream;
+    return s.getVideoTracks()[0] || null;
+  }
+  // dos fuentes → compositar pantalla (fondo) + webcam (PiP)
+  const scr = $('scrPrev'), wcam = $('wcamVid');
+  let W = scr?.videoWidth || 1280, H = scr?.videoHeight || 720;
+  if (!cfg().hq && W > 1280) { H = Math.round(H * 1280 / W); W = 1280; }
+  compCanvas = document.createElement('canvas');
+  compCanvas.width = W; compCanvas.height = H;
+  const ctx = compCanvas.getContext('2d');
+  const draw = () => {
+    if (scr?.videoWidth) ctx.drawImage(scr, 0, 0, W, H);
+    else { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); }
+    if (wcam?.videoWidth) {
+      const r = pipRect(W, H);
+      drawCover(ctx, wcam, r.x, r.y, r.w, r.h);
+      if (wcPos !== 'ct') {
+        ctx.strokeStyle = '#00f5ff';
+        ctx.lineWidth = Math.max(2, Math.round(W / 640));
+        ctx.strokeRect(r.x, r.y, r.w, r.h);
+      }
+    }
+    rafId = requestAnimationFrame(draw);
+  };
+  draw();
+  canvasStream = compCanvas.captureStream(cfg().hq ? 30 : 24);
+  return canvasStream.getVideoTracks()[0] || null;
+}
+
+// Devuelve el audio track a grabar. null = sin audio.
+// 1 fuente → track directo. 2 fuentes (sistema+mic) → mezcla vía AudioContext.
+function buildAudioTrack() {
+  const sysTrack = (cfg().audio && screenStream) ? screenStream.getAudioTracks()[0] : null;
+  const micTrack = (cfg().audio && micStream) ? micStream.getAudioTracks()[0] : null;
+  const present = [sysTrack, micTrack].filter(Boolean);
+  if (present.length === 0) return null;
+  if (present.length === 1) return present[0];
+  // dos fuentes → mezclar
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const dest = audioCtx.createMediaStreamDestination();
+  [screenStream, micStream].forEach(s => {
+    if (s && s.getAudioTracks().length) {
+      audioCtx.createMediaStreamSource(new MediaStream(s.getAudioTracks())).connect(dest);
+    }
+  });
+  return dest.stream.getAudioTracks()[0] || null;
+}
+
+// Detiene el compositor y libera sus recursos (canvas loop + AudioContext).
+function stopCompositor() {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (canvasStream) { canvasStream.getTracks().forEach(t => t.stop()); canvasStream = null; }
+  if (audioCtx) { try { audioCtx.close(); } catch (_) {} audioCtx = null; }
+  compCanvas = null;
+}
+
 // ── Recording ───────────────────────────────────────────────────────────────
 async function toggleRecording() {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
@@ -155,11 +258,10 @@ async function toggleRecording() {
     toast('Activa pantalla, webcam o micrófono primero', 'err');
     return;
   }
-  const tracks = [];
-  if (screenStream) screenStream.getTracks().forEach(t => tracks.push(t));
-  if (webcamStream) webcamStream.getVideoTracks().forEach(t => tracks.push(t));
-  if (micStream && cfg().audio) micStream.getAudioTracks().forEach(t => tracks.push(t));
-  const combined = new MediaStream(tracks);
+  // Componer las fuentes: video (pantalla+webcam PiP o directo) + audio (mezcla o directo)
+  const vTrack = buildVideoTrack();
+  const aTrack = buildAudioTrack();
+  const combined = new MediaStream([vTrack, aTrack].filter(Boolean));
 
   let mimeType = 'video/webm';
   const c = cfg().codec;
@@ -168,11 +270,20 @@ async function toggleRecording() {
   else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) mimeType = 'video/webm;codecs=vp9';
   else if (MediaRecorder.isTypeSupported('video/mp4')) mimeType = 'video/mp4';  // iOS Safari
 
+  const opts = { mimeType };
+  if (vTrack) opts.videoBitsPerSecond = cfg().hq ? 6_000_000 : 2_500_000;
+  if (aTrack) opts.audioBitsPerSecond = 128_000;
   try {
-    mediaRecorder = new MediaRecorder(combined, { mimeType });
+    mediaRecorder = new MediaRecorder(combined, opts);
   } catch (e) {
-    toast('Codec no soportado: ' + mimeType, 'err');
-    return;
+    // Algunos webviews rechazan bitrate explícito: reintentar sólo con mimeType.
+    try {
+      mediaRecorder = new MediaRecorder(combined, { mimeType });
+    } catch (e2) {
+      stopCompositor();
+      toast('Codec no soportado: ' + mimeType, 'err');
+      return;
+    }
   }
   recChunks = [];
   mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recChunks.push(e.data); };
@@ -215,7 +326,8 @@ async function finalizeRecording() {
   if (cfg().timestamp) label += '_' + new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
   const projId = $('recProjSel')?.value;
   const url = URL.createObjectURL(blob);
-  if (typeof window.addRecItem === 'function') window.addRecItem(label, blob.size, url);
+  stopCompositor();
+  if (typeof window.addRecItem === 'function') window.addRecItem(label, blob.size, url, ext);
   toast('Grabación finalizada: ' + fmtSize(blob.size), 'ok');
 
   if (projId && cfg().save) {
@@ -253,15 +365,16 @@ function autoDownload(url, name) {
 }
 
 // ─── RECORDING ITEM (UI append) ──────────────────────────────────────────────
-function addRecItem(name, size, url) {
+function addRecItem(name, size, url, ext = 'webm') {
    const list = $('recList');
    const empty = list?.querySelector('.empty-txt'); if (empty) empty.remove();
    const d = document.createElement('div'); d.className = 'ritem';
    const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+   const fname = `${esc(name)}.${ext}`;
    d.innerHTML = `<span class="ri-ico">🎬</span>
-     <div class="ri-info"><div class="ri-name">${esc(name)}.webm</div>
+     <div class="ri-info"><div class="ri-name">${fname}</div>
      <div class="ri-meta">${(size/1024/1024).toFixed(2)} MB · ${new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})}</div></div>
-     <div class="ri-acts"><a href="${url}" download="${esc(name)}.webm" class="ibt" title="Descargar">↓</a></div>`;
+     <div class="ri-acts"><a href="${url}" download="${fname}" class="ibt" title="Descargar">↓</a></div>`;
    list?.prepend(d);
 }
 
@@ -315,6 +428,7 @@ function cleanup() {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     try { mediaRecorder.stop(); } catch (_) {}
   }
+  stopCompositor();
   clearInterval(recInterval);
 }
 window.addEventListener('pagehide', cleanup);
