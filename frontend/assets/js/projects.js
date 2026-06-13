@@ -414,7 +414,26 @@ function openViewer(projId, f) {
   }
   if (f.type === 'video') {
     fetch(fileApiUrl, { headers: authHeaders }).then(r => r.blob()).then(blob => {
-      body.innerHTML = `<div class="view-video"><video controls autoplay src="${URL.createObjectURL(blob)}"></video></div>`;
+      body.innerHTML = '<div class="view-video"></div>';
+      const v = document.createElement('video');
+      v.controls = true;
+      v.playsInline = true;
+      v.src = URL.createObjectURL(blob);
+      // Las grabaciones de MediaRecorder (WebM) no traen la duración en la
+      // cabecera → duration === Infinity → el <video> habilita play pero no
+      // arranca. Forzamos un seek al final para que el navegador reindexe el
+      // archivo y recalcule la duración real, luego volvemos a 0.
+      v.addEventListener('loadedmetadata', () => {
+        if (v.duration === Infinity || isNaN(v.duration)) {
+          const onSeek = () => {
+            v.removeEventListener('timeupdate', onSeek);
+            v.currentTime = 0;
+          };
+          v.addEventListener('timeupdate', onSeek);
+          v.currentTime = 1e101;  // valor enorme → el navegador clampa al final real
+        }
+      }, { once: true });
+      body.querySelector('.view-video').appendChild(v);
     });
     return;
   }
