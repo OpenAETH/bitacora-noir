@@ -241,18 +241,6 @@ function buildVideoTrack() {
   };
   draw();
   canvasStream = compCanvas.captureStream(cfg().hq ? 60 : 24);
-  // ── DIAGNÓSTICO TEMPORAL: medir fidelidad real de la cadena ──
-  const sset = scr && screenStream ? screenStream.getVideoTracks()[0]?.getSettings() : null;
-  const wset = wcam && webcamStream ? webcamStream.getVideoTracks()[0]?.getSettings() : null;
-  const cset = canvasStream.getVideoTracks()[0]?.getSettings();
-  console.log('[REC diag] HQ=%s | pantalla track=%o (videoEl=%dx%d) | webcam track=%o | canvas=%dx%d | captureStream=%o',
-    cfg().hq,
-    sset ? `${sset.width}x${sset.height}@${sset.frameRate}` : 'n/a',
-    scr?.videoWidth || 0, scr?.videoHeight || 0,
-    wset ? `${wset.width}x${wset.height}@${wset.frameRate}` : 'n/a',
-    W, H,
-    cset ? `${cset.width}x${cset.height}@${cset.frameRate}` : 'n/a');
-  // ── fin diagnóstico ──
   return canvasStream.getVideoTracks()[0] || null;
 }
 
