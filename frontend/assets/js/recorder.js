@@ -80,7 +80,17 @@ async function toggleScreen() {
     return;
   }
   try {
-    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true });
+    // Pedimos resolución nativa alta y 30/60fps según calidad. El navegador
+    // entrega lo que la pantalla/pestaña permita (no upscalea).
+    const hd = cfg().hq;
+    screenStream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        width:  { ideal: hd ? 1920 : 1280 },
+        height: { ideal: hd ? 1080 : 720 },
+        frameRate: { ideal: hd ? 60 : 30, max: 60 },
+      },
+      audio: true,
+    });
     if (vid) { vid.srcObject = screenStream; vid.style.display = 'block'; }
     if (poff) poff.style.display = 'none';
     btn?.classList.add('on');
@@ -107,11 +117,17 @@ async function toggleWebcam() {
     return;
   }
   try {
-    // En mobile pedimos mayor resolución y facingMode user (selfie por default).
-    const constraints = isTouchDevice
-      ? { video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }
-      : { video: { width: 320, height: 240 }, audio: false };
-    webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+    // Resolución según calidad: HQ → 1080p, liviano → 720p. Antes el desktop
+    // pedía 320×240 (QVGA) → webcam borrosa. Pedimos 'ideal' para que el
+    // navegador degrade solo si el hardware no llega.
+    const hd = cfg().hq;
+    const vCon = {
+      width:  { ideal: hd ? 1920 : 1280 },
+      height: { ideal: hd ? 1080 : 720 },
+      frameRate: { ideal: 30 },
+    };
+    if (isTouchDevice) vCon.facingMode = 'user';  // selfie por default en mobile
+    webcamStream = await navigator.mediaDevices.getUserMedia({ video: vCon, audio: false });
     if (vid) { vid.srcObject = webcamStream; applyWcStyle(); vid.style.display = 'block'; }
     btn?.classList.add('on');
     toast('Webcam activada', 'info');
@@ -197,7 +213,10 @@ function buildVideoTrack() {
   // dos fuentes → compositar pantalla (fondo) + webcam (PiP)
   const scr = $('scrPrev'), wcam = $('wcamVid');
   let W = scr?.videoWidth || 1280, H = scr?.videoHeight || 720;
-  if (!cfg().hq && W > 1280) { H = Math.round(H * 1280 / W); W = 1280; }
+  // Techo del canvas: HQ → 1920px, liviano → 1280px (mantiene aspecto).
+  // Compositar a más de 1080p por canvas es muy pesado en CPU sin ganancia real.
+  const capW = cfg().hq ? 1920 : 1280;
+  if (W > capW) { H = Math.round(H * capW / W); W = capW; }
   compCanvas = document.createElement('canvas');
   compCanvas.width = W; compCanvas.height = H;
   const ctx = compCanvas.getContext('2d');
@@ -216,7 +235,7 @@ function buildVideoTrack() {
     rafId = requestAnimationFrame(draw);
   };
   draw();
-  canvasStream = compCanvas.captureStream(cfg().hq ? 30 : 24);
+  canvasStream = compCanvas.captureStream(cfg().hq ? 60 : 24);
   return canvasStream.getVideoTracks()[0] || null;
 }
 
@@ -271,8 +290,8 @@ async function toggleRecording() {
   else if (MediaRecorder.isTypeSupported('video/mp4')) mimeType = 'video/mp4';  // iOS Safari
 
   const opts = { mimeType };
-  if (vTrack) opts.videoBitsPerSecond = cfg().hq ? 6_000_000 : 2_500_000;
-  if (aTrack) opts.audioBitsPerSecond = 128_000;
+  if (vTrack) opts.videoBitsPerSecond = cfg().hq ? 10_000_000 : 2_500_000;  // HQ ≈ HD 1080p
+  if (aTrack) opts.audioBitsPerSecond = cfg().hq ? 256_000 : 128_000;
   try {
     mediaRecorder = new MediaRecorder(combined, opts);
   } catch (e) {
