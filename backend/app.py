@@ -458,7 +458,14 @@ async def save_recording(pid: str, body: RecordingPayload, auth=Depends(verify_t
     # y audio/* si la grabación es sólo micrófono). No asumir webm: MediaRecorder
     # emite mp4 en iOS/algunos webviews, y guardar mp4 etiquetado como webm
     # produce un archivo que ningún reproductor abre.
-    header, encoded = body.dataUrl.split(",", 1)
+    # OJO: el header puede contener comas dentro de los codecs
+    # (p.ej. data:video/webm;codecs="vp8, opus";base64,...) cuando la grabación
+    # combina video + audio. Partir por la primera "," rompería el base64, así
+    # que separamos por el marcador ";base64,".
+    if ";base64," in body.dataUrl:
+        header, encoded = body.dataUrl.split(";base64,", 1)
+    else:
+        header, encoded = body.dataUrl.split(",", 1)
     raw = base64.b64decode(encoded)
     mime = header[len("data:"):].split(";", 1)[0] or "video/webm"
     REC_EXT = {
