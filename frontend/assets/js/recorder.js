@@ -211,9 +211,11 @@ function buildVideoTrack() {
   // dos fuentes → compositar pantalla (fondo) + webcam (PiP)
   const scr = $('scrPrev'), wcam = $('wcamVid');
   let W = scr?.videoWidth || 1280, H = scr?.videoHeight || 720;
-  // Techo del canvas: HQ → 1920px, liviano → 1280px (mantiene aspecto).
-  // Compositar a más de 1080p por canvas es muy pesado en CPU sin ganancia real.
-  const capW = cfg().hq ? 1920 : 1280;
+  // El fondo (pantalla) se dibuja 1:1 con el canvas, así que el canvas usa la
+  // resolución NATIVA de la pantalla → nitidez perfecta, sin reescalar. El cap
+  // sólo protege la CPU en pantallas gigantes (>1440p liviano / >4K HQ); un
+  // 1366×768 o 1080p pasa intacto en ambos modos.
+  const capW = cfg().hq ? 3840 : 2560;
   if (W > capW) { H = Math.round(H * capW / W); W = capW; }
   compCanvas = document.createElement('canvas');
   compCanvas.width = W; compCanvas.height = H;
