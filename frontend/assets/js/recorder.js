@@ -20,9 +20,11 @@ let recSeconds = 0;
 
 // Compositor (sólo se arma cuando hay 2+ fuentes; ver buildVideoTrack/buildAudioTrack)
 let canvasStream = null;     // MediaStream que produce el <canvas> compositor
-let rafId = null;            // id del requestAnimationFrame del loop de dibujo
+let rafId = null;            // id del requestAnimationFrame del loop de dibujo (fallback)
 let audioCtx = null;         // AudioContext del mixer de audio
 let compCanvas = null;       // <canvas> offscreen compositor
+let compWorker = null;       // Web Worker que actúa de metrónomo (no se throttlea en bg)
+let drawFrame = null;        // fn de dibujo del frame actual (la dispara el Worker)
 
 // Webcam position presets (PiP)
 const WC_STYLES = {
@@ -85,16 +87,30 @@ async function toggleScreen() {
     // de la pantalla/pestaña y, si hace falta, el canvas reescala con calidad
     // alta. Sólo pedimos cadencia de frames alta.
     const hd = cfg().hq;
+    // Hints de superficie: empujamos a que el usuario comparta el MONITOR COMPLETO,
+    // para que la grabación capture todo el dispositivo aunque cambie de pestaña/app.
+    // Son sólo sugerencias (el usuario siempre elige) → verificamos el resultado abajo.
     screenStream = await navigator.mediaDevices.getDisplayMedia({
-      video: { frameRate: { ideal: hd ? 60 : 30, max: 60 } },
-      audio: true,
+      video: { frameRate: { ideal: hd ? 60 : 30, max: 60 }, displaySurface: 'monitor' },
+      audio: { suppressLocalAudioPlayback: false },
+      monitorTypeSurfaces: 'include',
+      surfaceSwitching: 'include',
+      systemAudio: 'include',
+      selfBrowserSurface: 'exclude',
     });
     if (vid) { vid.srcObject = screenStream; vid.style.display = 'block'; }
     if (poff) poff.style.display = 'none';
     btn?.classList.add('on');
     $('prevBox')?.classList.add('active');
     screenStream.getVideoTracks()[0].onended = () => toggleScreen();
-    toast('Captura de pantalla activa', 'info');
+    // Si el usuario eligió una sola pestaña/ventana, NO se capturan las otras pestañas:
+    // avisamos (no es error — se permite, pero conviene "Toda la pantalla").
+    const surface = screenStream.getVideoTracks()[0].getSettings?.().displaySurface;
+    if (surface === 'browser' || surface === 'window') {
+      toast('Compartiste una sola pestaña/ventana — para grabar todo el dispositivo elegí "Toda la pantalla"', 'info');
+    } else {
+      toast('Captura de pantalla activa', 'info');
+    }
   } catch (e) {
     toast('Permiso denegado: pantalla', 'err');
   }
@@ -225,7 +241,16 @@ function buildVideoTrack() {
   // lava los bordes. Forzamos interpolación de alta calidad.
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  const draw = () => {
+  const fps = cfg().hq ? 60 : 24;
+  // captureStream(0): stream en modo MANUAL. Empujamos cada frame con requestFrame()
+  // en vez de depender del muestreo automático del canvas, que se suspende cuando la
+  // pestaña pasa a segundo plano. Así el compuesto sigue vivo aunque el usuario cambie
+  // de pestaña/app durante la grabación.
+  canvasStream = compCanvas.captureStream(0);
+  const vtrack = canvasStream.getVideoTracks()[0] || null;
+  // drawFrame dibuja UN frame (pantalla de fondo + webcam PiP) y lo empuja al stream.
+  // Lo expone a nivel módulo para que el tick del Worker lo dispare.
+  drawFrame = () => {
     if (scr?.videoWidth) ctx.drawImage(scr, 0, 0, W, H);
     else { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); }
     if (wcam?.videoWidth) {
@@ -237,11 +262,22 @@ function buildVideoTrack() {
         ctx.strokeRect(r.x, r.y, r.w, r.h);
       }
     }
-    rafId = requestAnimationFrame(draw);
+    if (vtrack && vtrack.requestFrame) vtrack.requestFrame();
   };
-  draw();
-  canvasStream = compCanvas.captureStream(cfg().hq ? 60 : 24);
-  return canvasStream.getVideoTracks()[0] || null;
+  // Reloj de dibujo desde un Web Worker: sus timers NO se throttlean en pestañas de
+  // fondo (a diferencia de requestAnimationFrame/setInterval del hilo principal).
+  try {
+    compWorker = new Worker('/assets/js/draw-worker.js');
+    compWorker.onmessage = () => { if (drawFrame) drawFrame(); };
+    compWorker.postMessage({ cmd: 'start', fps });
+  } catch (_) {
+    // Fallback si el Worker no se puede crear (origin file:// u otro): rAF clásico.
+    // Se congela en background, pero al menos compone en primer plano.
+    const loop = () => { if (drawFrame) drawFrame(); rafId = requestAnimationFrame(loop); };
+    loop();
+  }
+  drawFrame();  // primer frame inmediato
+  return vtrack;
 }
 
 // Devuelve el audio track a grabar. null = sin audio.
@@ -265,10 +301,12 @@ function buildAudioTrack() {
 
 // Detiene el compositor y libera sus recursos (canvas loop + AudioContext).
 function stopCompositor() {
+  if (compWorker) { try { compWorker.postMessage({ cmd: 'stop' }); compWorker.terminate(); } catch (_) {} compWorker = null; }
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
   if (canvasStream) { canvasStream.getTracks().forEach(t => t.stop()); canvasStream = null; }
   if (audioCtx) { try { audioCtx.close(); } catch (_) {} audioCtx = null; }
   compCanvas = null;
+  drawFrame = null;
 }
 
 // ── Recording ───────────────────────────────────────────────────────────────
@@ -457,6 +495,12 @@ function cleanup() {
 }
 window.addEventListener('pagehide', cleanup);
 window.addEventListener('beforeunload', cleanup);
+
+// Defensa en profundidad: el Worker ya mantiene el ritmo en background, pero forzamos
+// un frame en la transición de visibilidad para que el primer frame oculto no quede viejo.
+document.addEventListener('visibilitychange', () => {
+  if (drawFrame && mediaRecorder && mediaRecorder.state === 'recording') drawFrame();
+});
 
 // ── Expose globals (legacy onclick=) + módulo namespace ─────────────────────
 Object.assign(window, {
