@@ -18,13 +18,8 @@ let recChunks = [];
 let recInterval = null;
 let recSeconds = 0;
 
-// Compositor (sólo se arma cuando hay 2+ fuentes; ver buildVideoTrack/buildAudioTrack)
-let canvasStream = null;     // MediaStream que produce el <canvas> compositor
-let rafId = null;            // id del requestAnimationFrame del loop de dibujo (fallback)
-let audioCtx = null;         // AudioContext del mixer de audio
-let compCanvas = null;       // <canvas> offscreen compositor
-let compWorker = null;       // Web Worker que actúa de metrónomo (no se throttlea en bg)
-let drawFrame = null;        // fn de dibujo del frame actual (la dispara el Worker)
+let audioCtx = null;         // AudioContext del mixer de audio (sistema + mic)
+let pipWindow = null;        // ventana Document PiP donde flota la webcam
 
 // Webcam position presets (PiP)
 const WC_STYLES = {
@@ -120,6 +115,7 @@ async function toggleScreen() {
 async function toggleWebcam() {
   const btn = $('btnWcm'), vid = $('wcamVid');
   if (webcamStream) {
+    exitWebcamPip();
     webcamStream.getTracks().forEach(t => t.stop());
     webcamStream = null;
     btn?.classList.remove('on');
@@ -145,9 +141,63 @@ async function toggleWebcam() {
     if (vid) { vid.srcObject = webcamStream; applyWcStyle(); vid.style.display = 'block'; }
     btn?.classList.add('on');
     toast('Webcam activada', 'info');
+    // Flotar la webcam sobre toda la pantalla (Document PiP) para que la grabación
+    // de pantalla la capture aunque cambies de pestaña. Best-effort: el click del
+    // botón es el gesto de usuario que la API exige.
+    enterWebcamPip();
   } catch (e) {
     toast('Permiso denegado: webcam', 'err');
   }
+}
+
+// ── Webcam flotante (Picture-in-Picture sobre TODA la pantalla) ─────────────
+// Saca la webcam de la pestaña y la pone en una ventana always-on-top del SO.
+// Así la grabación de pantalla completa la captura aunque la pestaña esté oculta.
+// Usa Document PiP (Chrome/Edge 116+, conserva borde cyan); si no está, cae al
+// PiP de video nativo (más universal, sin estilo).
+async function enterWebcamPip() {
+  if (!webcamStream) return;
+  // Dimensiones según preset: vertical (vl/vr) → retrato, resto → apaisado.
+  const portrait = wcPos === 'vl' || wcPos === 'vr';
+  const w = portrait ? 180 : 320;
+  const h = portrait ? 320 : 180;
+
+  // 1) Document PiP — flota HTML, mantenemos el look cyborg.
+  if (window.documentPictureInPicture?.requestWindow) {
+    try {
+      pipWindow = await window.documentPictureInPicture.requestWindow({ width: w, height: h });
+      const doc = pipWindow.document;
+      doc.body.style.cssText = 'margin:0;background:#000;overflow:hidden';
+      const v = doc.createElement('video');
+      v.autoplay = true; v.muted = true; v.playsInline = true;
+      v.srcObject = webcamStream;
+      v.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;border:2px solid #00f5ff;box-sizing:border-box;background:#000';
+      doc.body.append(v);
+      pipWindow.addEventListener('pagehide', () => { pipWindow = null; });
+      toast('Webcam flotando sobre la pantalla', 'ok');
+      return;
+    } catch (e) {
+      pipWindow = null;  // sigue al fallback
+    }
+  }
+
+  // 2) Fallback: PiP de video nativo sobre el <video id="wcamVid">.
+  const vid = $('wcamVid');
+  if (vid?.requestPictureInPicture) {
+    try {
+      await vid.requestPictureInPicture();
+      toast('Webcam flotando sobre la pantalla', 'ok');
+      return;
+    } catch (e) {/* el usuario puede flotarla manualmente */}
+  }
+  toast('Tu navegador no flota la webcam automáticamente — usá el botón PiP del video', 'info');
+}
+
+function exitWebcamPip() {
+  if (pipWindow) { try { pipWindow.close(); } catch (_) {} pipWindow = null; }
+  try {
+    if (document.pictureInPictureElement) document.exitPictureInPicture();
+  } catch (_) {}
 }
 
 // ── Microphone ──────────────────────────────────────────────────────────────
@@ -180,104 +230,21 @@ function toggleSysAudio() {
   toast('Audio del sistema: se captura junto con pantalla', 'info');
 }
 
-// ── Compositor (canvas video + audio mixer) ─────────────────────────────────
-// Traduce el preset de posición (wcPos) a un rect proporcional sobre el canvas.
-// Devuelve {x,y,w,h} en píxeles del canvas (W×H).
-function pipRect(W, H) {
-  const m = Math.round(W * 0.015) + 6;        // margen ~1.5% del ancho
-  const land = { w: Math.round(W * 0.22), h: 0 };
-  land.h = Math.round(land.w * 9 / 16);        // PiP apaisado 16:9
-  const port = { w: Math.round(W * 0.12), h: 0 };
-  port.h = Math.round(port.w * 16 / 9);        // PiP vertical 9:16
-  const cx = Math.round((W - land.w) / 2);
-  switch (wcPos) {
-    case 'ct': return { x: 0, y: 0, w: W, h: H };                       // full
-    case 'top': return { x: cx, y: m, w: land.w, h: land.h };
-    case 'cb': return { x: cx, y: H - land.h - m, w: land.w, h: land.h };
-    case 'tl': return { x: m, y: m, w: land.w, h: land.h };
-    case 'tr': return { x: W - land.w - m, y: m, w: land.w, h: land.h };
-    case 'bl': return { x: m, y: H - land.h - m, w: land.w, h: land.h };
-    case 'vl': return { x: m, y: m, w: port.w, h: port.h };
-    case 'vr': return { x: W - port.w - m, y: m, w: port.w, h: port.h };
-    case 'br':
-    default:  return { x: W - land.w - m, y: H - land.h - m, w: land.w, h: land.h };
-  }
-}
-
-// Dibuja `vid` dentro de (dx,dy,dw,dh) con recorte tipo object-fit:cover.
-function drawCover(ctx, vid, dx, dy, dw, dh) {
-  const vw = vid.videoWidth, vh = vid.videoHeight;
-  if (!vw || !vh) return;
-  const scale = Math.max(dw / vw, dh / vh);
-  const sw = dw / scale, sh = dh / scale;
-  const sx = (vw - sw) / 2, sy = (vh - sh) / 2;
-  ctx.drawImage(vid, sx, sy, sw, sh, dx, dy, dw, dh);
-}
-
-// Devuelve el video track a grabar. null = sin video (solo audio).
-// 1 fuente → track directo (sin canvas). 2 fuentes (pantalla+webcam) → canvas PiP.
+// ── Video a grabar: TRACK CRUDO de pantalla ─────────────────────────────────
+// Decisión de arquitectura: NO componemos en canvas. El compositor de canvas se
+// CONGELABA al cambiar de pestaña, porque tanto el render del <video> que lo
+// alimenta como el pintado del canvas se suspenden en un documento en segundo
+// plano. En cambio, el track de getDisplayMedia lo captura el navegador a nivel
+// del SISTEMA OPERATIVO: sigue corriendo aunque la pestaña de Bitácora esté oculta.
+//
+// La webcam aparece en la grabación porque flota FÍSICAMENTE sobre la pantalla
+// como ventana Picture-in-Picture (ver enterWebcamPip), no como un <div> dentro
+// de la pestaña. Así la captura de pantalla completa la toma naturalmente.
+//
+// Devuelve el video track a grabar. Pantalla si existe; si no, webcam directa.
 function buildVideoTrack() {
-  const hasScreen = !!screenStream, hasWebcam = !!webcamStream;
-  if (!hasScreen && !hasWebcam) return null;
-  if (hasScreen !== hasWebcam) {
-    // exactamente una fuente de video
-    const s = hasScreen ? screenStream : webcamStream;
-    return s.getVideoTracks()[0] || null;
-  }
-  // dos fuentes → compositar pantalla (fondo) + webcam (PiP)
-  const scr = $('scrPrev'), wcam = $('wcamVid');
-  let W = scr?.videoWidth || 1280, H = scr?.videoHeight || 720;
-  // El fondo (pantalla) se dibuja 1:1 con el canvas, así que el canvas usa la
-  // resolución NATIVA de la pantalla → nitidez perfecta, sin reescalar. El cap
-  // sólo protege la CPU en pantallas gigantes (>1440p liviano / >4K HQ); un
-  // 1366×768 o 1080p pasa intacto en ambos modos.
-  const capW = cfg().hq ? 3840 : 2560;
-  if (W > capW) { H = Math.round(H * capW / W); W = capW; }
-  compCanvas = document.createElement('canvas');
-  compCanvas.width = W; compCanvas.height = H;
-  const ctx = compCanvas.getContext('2d', { alpha: false });
-  // CLAVE contra el "difuminado": por defecto el canvas escala con calidad 'low'.
-  // Al dibujar la pantalla nativa → canvas (downscale) y la webcam → PiP, eso
-  // lava los bordes. Forzamos interpolación de alta calidad.
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  const fps = cfg().hq ? 60 : 24;
-  // captureStream(0): stream en modo MANUAL. Empujamos cada frame con requestFrame()
-  // en vez de depender del muestreo automático del canvas, que se suspende cuando la
-  // pestaña pasa a segundo plano. Así el compuesto sigue vivo aunque el usuario cambie
-  // de pestaña/app durante la grabación.
-  canvasStream = compCanvas.captureStream(0);
-  const vtrack = canvasStream.getVideoTracks()[0] || null;
-  // drawFrame dibuja UN frame (pantalla de fondo + webcam PiP) y lo empuja al stream.
-  // Lo expone a nivel módulo para que el tick del Worker lo dispare.
-  drawFrame = () => {
-    if (scr?.videoWidth) ctx.drawImage(scr, 0, 0, W, H);
-    else { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); }
-    if (wcam?.videoWidth) {
-      const r = pipRect(W, H);
-      drawCover(ctx, wcam, r.x, r.y, r.w, r.h);
-      if (wcPos !== 'ct') {
-        ctx.strokeStyle = '#00f5ff';
-        ctx.lineWidth = Math.max(2, Math.round(W / 640));
-        ctx.strokeRect(r.x, r.y, r.w, r.h);
-      }
-    }
-    if (vtrack && vtrack.requestFrame) vtrack.requestFrame();
-  };
-  // Reloj de dibujo desde un Web Worker: sus timers NO se throttlean en pestañas de
-  // fondo (a diferencia de requestAnimationFrame/setInterval del hilo principal).
-  try {
-    compWorker = new Worker('/assets/js/draw-worker.js');
-    compWorker.onmessage = () => { if (drawFrame) drawFrame(); };
-    compWorker.postMessage({ cmd: 'start', fps });
-  } catch (_) {
-    // Fallback si el Worker no se puede crear (origin file:// u otro): rAF clásico.
-    // Se congela en background, pero al menos compone en primer plano.
-    const loop = () => { if (drawFrame) drawFrame(); rafId = requestAnimationFrame(loop); };
-    loop();
-  }
-  drawFrame();  // primer frame inmediato
-  return vtrack;
+  const src = screenStream || webcamStream;
+  return src ? (src.getVideoTracks()[0] || null) : null;
 }
 
 // Devuelve el audio track a grabar. null = sin audio.
@@ -299,14 +266,10 @@ function buildAudioTrack() {
   return dest.stream.getAudioTracks()[0] || null;
 }
 
-// Detiene el compositor y libera sus recursos (canvas loop + AudioContext).
+// Libera los recursos del mixer de audio. (Ya no hay canvas/worker: la grabación
+// usa el track de pantalla crudo y la webcam flota como PiP.)
 function stopCompositor() {
-  if (compWorker) { try { compWorker.postMessage({ cmd: 'stop' }); compWorker.terminate(); } catch (_) {} compWorker = null; }
-  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-  if (canvasStream) { canvasStream.getTracks().forEach(t => t.stop()); canvasStream = null; }
   if (audioCtx) { try { audioCtx.close(); } catch (_) {} audioCtx = null; }
-  compCanvas = null;
-  drawFrame = null;
 }
 
 // ── Recording ───────────────────────────────────────────────────────────────
@@ -320,7 +283,8 @@ async function toggleRecording() {
     toast('Activa pantalla, webcam o micrófono primero', 'err');
     return;
   }
-  // Componer las fuentes: video (pantalla+webcam PiP o directo) + audio (mezcla o directo)
+  // Video: track de pantalla crudo (no se congela en background); la webcam flota
+  // como PiP sobre la pantalla. Audio: mezcla sistema+mic o directo.
   const vTrack = buildVideoTrack();
   const aTrack = buildAudioTrack();
   const combined = new MediaStream([vTrack, aTrack].filter(Boolean));
@@ -483,6 +447,7 @@ async function takeScreenshot() {
 
 // ── Cleanup on page leave (importante en mobile) ────────────────────────────
 function cleanup() {
+  exitWebcamPip();
   [screenStream, webcamStream, micStream].forEach(s => {
     if (s) s.getTracks().forEach(t => t.stop());
   });
@@ -495,12 +460,6 @@ function cleanup() {
 }
 window.addEventListener('pagehide', cleanup);
 window.addEventListener('beforeunload', cleanup);
-
-// Defensa en profundidad: el Worker ya mantiene el ritmo en background, pero forzamos
-// un frame en la transición de visibilidad para que el primer frame oculto no quede viejo.
-document.addEventListener('visibilitychange', () => {
-  if (drawFrame && mediaRecorder && mediaRecorder.state === 'recording') drawFrame();
-});
 
 // ── Expose globals (legacy onclick=) + módulo namespace ─────────────────────
 Object.assign(window, {
@@ -516,5 +475,6 @@ window.BN.recorder = {
   toggleScreen, toggleWebcam, toggleMic, toggleSysAudio,
   toggleRecording, stopRecording, takeScreenshot,
   applyWcStyle, setWcPos, addRecItem,
+  enterWebcamPip, exitWebcamPip,
   getStreams: () => ({ screen: screenStream, webcam: webcamStream, mic: micStream })
 };
