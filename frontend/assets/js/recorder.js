@@ -20,6 +20,7 @@ let recSeconds = 0;
 
 let audioCtx = null;         // AudioContext del mixer de audio (sistema + mic)
 let pipWindow = null;        // ventana Document PiP donde flota la webcam
+let keepAliveCtx = null;     // AudioContext con tono silencioso (anti occlusion-throttling)
 
 // Webcam position presets (PiP)
 const WC_STYLES = {
@@ -272,6 +273,31 @@ function stopCompositor() {
   if (audioCtx) { try { audioCtx.close(); } catch (_) {} audioCtx = null; }
 }
 
+// ── Anti occlusion-throttling (oscilador silencioso) ────────────────────────
+// SÍNTOMA: la grabación se congela cuando la ventana de Bitácora queda tapada por
+// otras y reanuda al volver a verse. CAUSA: Chrome "duerme" (occlusion throttling)
+// las ventanas ocultas → el manejo de chunks de MediaRecorder (que es JavaScript)
+// se throttlea y deja de avanzar. El track de pantalla se captura a nivel SO, pero
+// el encoder en JS se frena.
+// FIX: las pestañas que reproducen audio están EXENTAS del throttling. Mantenemos un
+// tono inaudible (gain ~0.0001) sonando mientras grabás → la pestaña sigue "activa".
+function startKeepAlive() {
+  try {
+    keepAliveCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = keepAliveCtx.createOscillator();
+    const gain = keepAliveCtx.createGain();
+    gain.gain.value = 0.0001;              // prácticamente inaudible
+    osc.frequency.value = 20;              // sub-grave, fuera del rango molesto
+    osc.connect(gain).connect(keepAliveCtx.destination);
+    osc.start();
+    if (keepAliveCtx.state === 'suspended') keepAliveCtx.resume();
+  } catch (_) { keepAliveCtx = null; }
+}
+
+function stopKeepAlive() {
+  if (keepAliveCtx) { try { keepAliveCtx.close(); } catch (_) {} keepAliveCtx = null; }
+}
+
 // ── Recording ───────────────────────────────────────────────────────────────
 async function toggleRecording() {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
@@ -315,6 +341,7 @@ async function toggleRecording() {
   mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recChunks.push(e.data); };
   mediaRecorder.onstop = finalizeRecording;
   mediaRecorder.start(1000);
+  startKeepAlive();  // evita el freeze cuando la ventana queda tapada
 
   recSeconds = 0;
   $('recBadge')?.classList.add('show');
@@ -335,6 +362,7 @@ async function toggleRecording() {
 
 function stopRecording() {
   if (mediaRecorder) mediaRecorder.stop();
+  stopKeepAlive();
   clearInterval(recInterval);
   $('recBadge')?.classList.remove('show');
   $('prevBox')?.classList.remove('recording');
@@ -456,6 +484,7 @@ function cleanup() {
     try { mediaRecorder.stop(); } catch (_) {}
   }
   stopCompositor();
+  stopKeepAlive();
   clearInterval(recInterval);
 }
 window.addEventListener('pagehide', cleanup);
