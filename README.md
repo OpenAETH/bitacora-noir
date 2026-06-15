@@ -1,25 +1,45 @@
-# AETHERYON BITÁCORA · Cloud v5.0
+# ⚡ AETHERYON BITÁCORA · Cloud v5.0
 
-Sistema de gestión de proyectos, grabaciones y documentación.  
+**Sistema de gestión de proyectos, grabaciones multimedia y documentación técnica.**  
 Stack: **FastAPI + MongoDB Atlas + Cloudflare R2 + JWT Auth**  
-Deploy: **Render**
+Deploy: **Render** | Plataforma: **Web + PWA** (responsive)
+
+---
+
+## ✨ Funcionalidades
+
+- **Gestión de proyectos** — CRUD completo con categorías, tags, nivel de acceso y color
+- **Archivos** — Subida, descarga y visualización inline (imagen, video, audio, PDF, código)
+- **Grabación multimedia** — Pantalla, webcam y micrófono desde el navegador
+- **Screenshots** — Captura con un clic, se guarda automáticamente en el proyecto
+- **IDE de código** — Editor integrado con resaltado de sintaxis (JS, Python, HTML, CSS, +)
+- **Dashboard** — Métricas de almacenamiento por proyecto
+- **Interfaz cyberpunk responsiva** — Funciona en desktop, tablet y mobile
+- **Autenticación JWT** — Login con contraseña, token configurable (default 72 h)
+- **PWA** — Planificada (manifest + service worker)
 
 ---
 
 ## Estructura del proyecto
 
 ```
-aetheryon-cloud/
+Bitacora-Noir/
 ├── backend/
-│   └── app.py              # FastAPI + MongoDB + R2 + Auth
+│   └── app.py                   # FastAPI — API completa (~563 líneas)
 ├── frontend/
-│   ├── aetheryon_frontend.html   # UI principal (login + responsive)
-│   └── ide12.html                # Editor de código integrado
-├── render.yaml             # Configuración de deploy en Render
-├── Procfile                # Comando de inicio
-├── requirements.txt        # Dependencias Python
-├── .env.example            # Variables de entorno de referencia
-└── .gitignore
+│   ├── aetheryon_frontend.html  # SPA principal (~1768 líneas, refactor en curso)
+│   ├── ide12.html               # Editor de código integrado (~1238 líneas)
+│   └── assets/                  # Módulos JS/CSS extraídos (refactor progresivo)
+│       ├── css/responsive.css   # Breakpoints, touch targets, safe-area
+│       └── js/                  # platform, core, recorder, ui, ide-app
+├── render.yaml                  # Config de deploy en Render
+├── Procfile                     # Comando de inicio (uvicorn)
+├── requirements.txt             # Dependencias Python
+├── package.json                 # Dependencias Node (usado en experimento Capacitor)
+├── capacitor.config.ts          # ⬒ Prueba de concepto Capacitor (archivada)
+├── android/                     # ⬒ Proyecto Android generado (no mantenido)
+├── CLAUDE.md                    # Guía de arquitectura para asistentes IA
+└── LICENSE                      # MIT
 ```
 
 ---
@@ -98,9 +118,11 @@ uvicorn backend.app:app --reload --port 8000
 
 Abrir: http://localhost:8000
 
+> El frontend se sirve desde el backend: `GET /` → `aetheryon_frontend.html`, `GET /ide` → `ide12.html`.
+
 ---
 
-## Endpoints principales
+## API Endpoints
 
 | Método | Ruta | Descripción |
 |---|---|---|
@@ -108,16 +130,38 @@ Abrir: http://localhost:8000
 | GET | `/api/auth/verify` | Verificar token |
 | GET | `/api/projects` | Listar proyectos |
 | POST | `/api/projects` | Crear proyecto |
-| GET | `/api/projects/{id}/files` | Listar archivos (R2) |
+| GET | `/api/projects/{id}` | Ver proyecto + archivos |
+| PUT | `/api/projects/{id}` | Actualizar proyecto |
+| DELETE | `/api/projects/{id}` | Eliminar proyecto (+ archivos en R2) |
+| GET | `/api/projects/{id}/files` | Listar archivos |
 | POST | `/api/projects/{id}/upload` | Subir archivo |
-| POST | `/api/projects/{id}/screenshot` | Guardar captura |
+| POST | `/api/projects/{id}/screenshot` | Guardar screenshot |
 | POST | `/api/projects/{id}/recording` | Guardar grabación |
-| GET | `/api/projects/{id}/files/{path}` | Servir archivo desde R2 |
+| POST | `/api/projects/{id}/save-file` | Guardar contenido de archivo |
+| DELETE | `/api/projects/{id}/files/{path}` | Eliminar archivo |
+| GET | `/api/projects/{id}/files/{path}` | Servir archivo (proxy desde R2) |
 | GET | `/api/health` | Health check |
 | GET | `/api/docs` | Documentación Swagger |
 
 Todos los endpoints excepto `/api/auth/login` y `/api/health` requieren  
 `Authorization: Bearer <token>` en el header.
+
+---
+
+## Compatibilidad Mobile
+
+El frontend es **responsivo por diseño** y se adapta automáticamente al dispositivo:
+
+- **Detección de plataforma** — `platform.js` agrega clases al `<html>` (`.is-mobile`, `.is-touch`, `.is-tablet`, `.is-pwa`) para ajustar UI y comportamientos
+- **Botones contextuales** — "Grabar pantalla" se oculta en mobile (no existe `getDisplayMedia`)
+- **Sidebar colapsable** — menú hamburger en mobile, se cierra automáticamente al navegar
+- **Hit targets** — botones con área táctil mínima de 40×40 px
+- **IDE mobile** — botón "← Volver" en toolbar, navegación adaptativa
+
+### Ruta hacia PWA (Fase 2 — pendiente)
+- `manifest.webmanifest` con iconos 192/512
+- `sw.js` con estrategia cache-first para assets, network-only para API
+- Service worker registrado desde `core.js`
 
 ---
 
@@ -127,7 +171,17 @@ Todos los endpoints excepto `/api/auth/login` y `/api/health` requieren
 - Cambiar `ACCESS_PASSWORD` a algo seguro antes de hacer deploy
 - `JWT_SECRET` debe ser un string aleatorio y secreto — Render puede generarlo automáticamente con `generateValue: true`
 - Los archivos se sirven desde R2 a través del backend (con validación de auth), no directamente
+- CORS está abierto (`*`) — necesario para el WebView mobile; no representa riesgo porque todos los endpoints sensibles requieren JWT
 
 ---
 
-*build with 🧡 by AETHERYON Systems*
+## Licencia
+
+MIT © 2026 AETHERYON Systems
+
+---
+
+## Capturas
+
+![Dashboard](Screenshot1.png)
+![IDE](Screenshot2.png)
