@@ -467,7 +467,6 @@ async def save_recording(pid: str, body: RecordingPayload, auth=Depends(verify_t
         header, encoded = body.dataUrl.split(";base64,", 1)
     else:
         header, encoded = body.dataUrl.split(",", 1)
-    header, encoded = body.dataUrl.split(",", 1)
     raw = base64.b64decode(encoded)
     mime = header[len("data:"):].split(";", 1)[0] or "video/webm"
     REC_EXT = {

@@ -102,7 +102,19 @@ function selectProject(proj) {
 function clearActiveProject() {
   window.activeProject = null;
   $('hdrProjName').textContent = '— Sin proyecto —';
+  const rps = $('recProjSel');
+  if (rps) rps.value = '';
+  renderProjList();
   loadRecentFiles();
+}
+
+// Cambio del selector "PROYECTO DESTINO" en el panel de grabación.
+// Vacío → volver a "sin proyecto" (la grabación se descarga, no se sube).
+// Con id → seleccionar ese proyecto como destino activo.
+function onRecProjChange(pid) {
+  if (!pid) { clearActiveProject(); return; }
+  const proj = (window.projects || []).find(p => p.id === pid);
+  if (proj) selectProject(proj);
 }
 
 function renderProjList() {
@@ -533,7 +545,7 @@ function updateProjSelects() {
     const cur = el.value;
     const defOpt = id === 'docProjSel'
       ? '<option value="">Todos los proyectos</option>'
-      : '<option value="">— Seleccionar —</option>';
+      : '<option value="">— Sin proyecto (descargar) —</option>';
     el.innerHTML = defOpt + window.projects.map(p => `<option value="${p.id}">${escH(p.name)}</option>`).join('');
     if (cur) el.value = cur;
     if (window.activeProject) el.value = window.activeProject.id;
@@ -634,7 +646,7 @@ async function initApp() {
 
 // ── Expose globals (legacy onclick= compat) ──────────────────────────────────
 Object.assign(window, {
-  loadProjects, createProject, selectProject, clearActiveProject,
+  loadProjects, createProject, selectProject, clearActiveProject, onRecProjChange,
   renderProjList, renderProjDetail, loadProjFilesTab,
   deleteProject, deleteFileFromProject, downloadFile, uploadFile,
   handleDrop, handleFileInput, updateStats, loadRecentFiles,

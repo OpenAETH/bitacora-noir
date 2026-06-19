@@ -788,7 +788,7 @@ footer .heart{color:var(--m);animation:hbeat 2s ease-in-out infinite}
             <div class="flbl" style="margin-bottom:5px">ETIQUETA</div>
             <input class="finp" type="text" id="recLabel" placeholder="sesion_001" style="margin-bottom:8px">
             <div class="flbl" style="margin-bottom:5px">PROYECTO DESTINO</div>
-            <select class="finp" id="recProjSel"><option value="">— Seleccionar —</option></select>
+            <select class="finp" id="recProjSel" onchange="onRecProjChange(this.value)"><option value="">— Sin proyecto (descargar) —</option></select>
           </div>
           <button class="ss-btn" onclick="takeScreenshot()">📷 CAPTURAR PANTALLA</button>
           <button class="rec-mb start" id="recBtn" onclick="toggleRecording()">⏺ INICIAR GRABACIÓN</button>
