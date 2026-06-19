@@ -10,8 +10,8 @@ Deploy: **Render** | Plataforma: **Web + PWA** (responsive)
 
 - **Gestión de proyectos** — CRUD completo con categorías, tags, nivel de acceso y color
 - **Archivos** — Subida, descarga y visualización inline (imagen, video, audio, PDF, código)
-- **Grabación multimedia** — Pantalla, webcam y micrófono desde el navegador
-- **Screenshots** — Captura con un clic, se guarda automáticamente en el proyecto
+- **Grabación multimedia** — Pantalla, webcam y micrófono desde el navegador. Con un **proyecto destino** seleccionado se sube a R2; con **"— Sin proyecto —"** se descarga directo al dispositivo
+- **Screenshots** — Captura con un clic, se guarda en el proyecto activo (o se descarga si no hay proyecto)
 - **IDE de código** — Editor integrado con resaltado de sintaxis (JS, Python, HTML, CSS, +)
 - **Dashboard** — Métricas de almacenamiento por proyecto
 - **Interfaz cyberpunk responsiva** — Funciona en desktop, tablet y mobile

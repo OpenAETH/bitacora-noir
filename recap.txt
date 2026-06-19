@@ -1,0 +1,57 @@
+2026-06-18
+─────────────────────────────────────────────
+Fix grabación — destino "sin proyecto" + upload R2 roto ✅
+(rama feature/layer-composition)
+
+Dos bugs corregidos:
+    ◼ Backend save_recording() — upload a R2 roto.
+      Una línea duplicada re-partía el dataURL por la primera ","
+      pisando el split correcto por ";base64,". Sólo rompía cuando
+      el header MIME traía coma (codecs="vp8, opus") — justo lo que
+      empezó a generar esta rama al combinar video+audio.
+      → eliminada la línea espuria (backend/app.py).
+    ◼ Frontend — no se podía volver a "sin proyecto".
+      El selector PROYECTO DESTINO se forzaba al proyecto activo y
+      no había forma de deseleccionar para descargar directo.
+      → onRecProjChange() + clearActiveProject() resetea el <select>;
+        opción "— Sin proyecto (descargar) —".
+        (aetheryon_frontend.html, projects.js)
+
+Verificación:
+    · roundtrip base64 con codec con coma → OK
+    · py_compile backend/app.py → OK
+
+Pendiente:
+    ◻ Smoke test real: grabar con proyecto (sube a R2) y sin
+      proyecto (descarga directa)
+
+─────────────────────────────────────────────
+2026-05-15
+─────────────────────────────────────────────
+Capacitor Android — APK debug BUILDEADA ✅
+
+Setup completado:
+    ◼ package.json + capacitor.config.ts (server.url → Render)
+    ◼ bootstrap-capacitor.js (API_URL absoluta + window.open patch)
+    ◼ <script src="capacitor.js"> en ambos HTMLs
+    ◼ openInIDE en ui.js respeta isCapacitor
+    ◼ .gitignore (node_modules/, android/, *.apk)
+    ◼ AndroidManifest con CAMERA, RECORD_AUDIO, WRITE_EXTERNAL_STORAGE
+    ◼ APK debug: android/app/build/outputs/apk/debug/app-debug.apk
+      (./gradlew assembleDebug, ~6 min primera build)
+
+Aprendizajes del entorno:
+    · Kali no tiene openjdk-17-jdk; usar `default-jdk`
+    · JDK Windows de Android Studio NO sirve desde WSL (es .exe)
+    · Capacitor v6 deprecó bundledWebRuntime; capacitor.config.ts requiere typescript instalado
+    · Android Studio Panda tenía "Generate app bundles or APK" gris;
+      buildear por CLI con gradlew fue más confiable
+
+Pendiente:
+    ◻ Smoke test en dispositivo físico (login → proyectos → cámara → mic → IDE)
+    ◻ APK release firmada (keystore + assembleRelease)
+    ◻ Branding: icono launcher + splash screen
+    ◻ Retomar Fase 1.9: extraer projects.js y auth.js de los HTML monolíticos
+
+Backend prod: https://aetheryon-bitacora.onrender.com
+appId: com.aetheryon.bitacoranoir
